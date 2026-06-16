@@ -1,7 +1,3 @@
-<img width="2332" height="1460" alt="スクリーンショット 2026-06-16 232111" src="https://github.com/user-attachments/assets/c5a9c31d-102a-43f6-9237-1f0905d56872" />
-<div align="center">
-  <img src="icon.svg" width="96" alt="DocCam icon">
-
   # DocCam — Document Camera
 
   **A simple document camera app — runs entirely in your browser.**
