@@ -845,7 +845,7 @@
       </button>
     </div>
     <div class="panel-row" id="corner-pos-row" style="display:none">
-      <span class="panel-label">Position</span>
+      <span class="panel-label" id="t-corner-pos">Position</span>
       <div class="corner-pos-grid">
         <button class="cpos-btn" data-pos="tl">●</button>
         <button class="cpos-btn" data-pos="tc">●</button>
@@ -858,8 +858,13 @@
         <button class="cpos-btn active" data-pos="br">●</button>
       </div>
     </div>
+    <div class="panel-row" id="corner-opacity-row" style="display:none">
+      <span class="panel-label" id="t-corner-opacity">Opacity</span>
+      <input type="range" class="opt-slider" id="corner-opacity-slider" min="10" max="100" value="100">
+      <span class="opt-val" id="corner-opacity-val">100%</span>
+    </div>
     <div class="panel-row" id="overlay-opacity-row" style="display:none">
-      <span class="panel-label">Opacity</span>
+      <span class="panel-label" id="t-overlay-opacity">Opacity</span>
       <input type="range" class="opt-slider" id="overlay-opacity-slider" min="10" max="90" value="45">
       <span class="opt-val" id="overlay-opacity-val">45%</span>
     </div>
@@ -1092,7 +1097,7 @@ const LANGS = {
     layout:'Layout', swap:'Swap source',
     color:'Color', size:'Size', shape:'Shape', darkness:'Darkness', softness:'Softness',
     width:'Width', height:'Height', reset:'Reset', auto:'Auto', no_video:'No video',
-    opacity:'Opacity',
+    opacity:'Opacity', position:'Position',
     fit_h:'Fit height', fit_w:'Fit width',
     ks_v:'Vertical', ks_h:'Horizontal', ks_angle:'Angle',
     g_cell:'Cell', r_style:'Style', r_tick:'Scale', r_angle:'Angle', r_cross:'Cross',
@@ -1121,7 +1126,7 @@ const LANGS = {
     layout:'レイアウト', swap:'ソース入替',
     color:'色', size:'サイズ', shape:'形状', darkness:'暗さ', softness:'ぼかし',
     width:'幅', height:'高さ', reset:'リセット', auto:'自動', no_video:'映像なし',
-    opacity:'不透明度',
+    opacity:'不透明度', position:'位置',
     fit_h:'縦フィット', fit_w:'横フィット',
     ks_v:'上下', ks_h:'左右', ks_angle:'角度',
     g_cell:'マス', r_style:'表示', r_tick:'目盛り', r_angle:'角度', r_cross:'十字',
@@ -1146,7 +1151,7 @@ const LANGS = {
     settings:'设置', lang:'语言', shortcuts:'快捷键', pin_ui:'固定UI',
     laser:'激光笔', highlight:'荧光笔', spotlight:'聚光灯', ruler:'标尺', grid:'网格', quality:'画质', keystone:'梯形校正',
     color:'颜色', size:'大小', shape:'形状', darkness:'暗度', softness:'柔化',
-    width:'宽', height:'高', reset:'重置', auto:'自动', no_video:'无视频', opacity:'不透明度',
+    width:'宽', height:'高', reset:'重置', auto:'自动', no_video:'无视频', opacity:'不透明度', position:'位置',
     ks_v:'垂直', ks_h:'水平', ks_angle:'角度',
     stop:'停止', hc:'高对比度', install:'安装应用', save:'保存设置', save_ok:'设置已保存', reset_confirm:'重置所有保存的设置？', reset_all:'重置所有设置', layout:'布局', swap:'交换来源',
     fit_h:'适应高度', fit_w:'适应宽度', tagline:'简单的网页实物投影仪',
@@ -1172,7 +1177,7 @@ const LANGS = {
     settings:'설정', lang:'언어', shortcuts:'단축키', pin_ui:'UI 고정',
     laser:'레이저 포인터', highlight:'형광펜', spotlight:'스포트라이트', ruler:'자', grid:'격자', quality:'화질', keystone:'키스톤 보정',
     color:'색상', size:'크기', shape:'모양', darkness:'어둡기', softness:'부드럽기',
-    width:'너비', height:'높이', reset:'재설정', auto:'자동', no_video:'영상 없음', opacity:'불투명도',
+    width:'너비', height:'높이', reset:'재설정', auto:'자동', no_video:'영상 없음', opacity:'불투명도', position:'위치',
     ks_v:'상하', ks_h:'좌우', ks_angle:'각도',
     stop:'중지', hc:'고대비', install:'앱 설치', save:'설정 저장', save_ok:'설정이 저장되었습니다', reset_confirm:'저장된 모든 설정을 초기화하시겠습니까?', reset_all:'모든 설정 초기화', layout:'레이아웃', swap:'소스 전환',
     fit_h:'높이 맞춤', fit_w:'너비 맞춤', tagline:'간단한 웹 실물화상기',
@@ -1198,7 +1203,7 @@ const LANGS = {
     settings:'Ajustes', lang:'Idioma', shortcuts:'Atajos', pin_ui:'Fijar UI',
     laser:'Puntero láser', highlight:'Marcador', spotlight:'Foco', ruler:'Regla', grid:'Cuadrícula', quality:'Imagen', keystone:'Trapezoidal',
     color:'Color', size:'Tamaño', shape:'Forma', darkness:'Oscuridad', softness:'Suavidad',
-    width:'Ancho', height:'Alto', reset:'Reset', auto:'Auto', no_video:'Sin vídeo', opacity:'Opacidad',
+    width:'Ancho', height:'Alto', reset:'Reset', auto:'Auto', no_video:'Sin vídeo', opacity:'Opacidad', position:'Posición',
     ks_v:'Vertical', ks_h:'Horizontal', ks_angle:'Ángulo',
     stop:'Detener', hc:'Alto contraste', install:'Instalar app', save:'Guardar ajustes', save_ok:'Ajustes guardados', reset_confirm:'¿Restablecer todos los ajustes guardados?', reset_all:'Restablecer todo', layout:'Diseño', swap:'Intercambiar',
     fit_h:'Ajustar alto', fit_w:'Ajustar ancho', tagline:'Cámara de documentos web',
@@ -1224,7 +1229,7 @@ const LANGS = {
     settings:'Paramètres', lang:'Langue', shortcuts:'Raccourcis', pin_ui:'Épingler UI',
     laser:'Pointeur laser', highlight:'Surligneur', spotlight:'Projecteur', ruler:'Règle', grid:'Grille', quality:'Image', keystone:'Trapèze',
     color:'Couleur', size:'Taille', shape:'Forme', darkness:'Obscurité', softness:'Douceur',
-    width:'Largeur', height:'Hauteur', reset:'Reset', auto:'Auto', no_video:'Pas de vidéo', opacity:'Opacité',
+    width:'Largeur', height:'Hauteur', reset:'Reset', auto:'Auto', no_video:'Pas de vidéo', opacity:'Opacité', position:'Position',
     ks_v:'Vertical', ks_h:'Horizontal', ks_angle:'Angle',
     stop:'Arrêter', hc:'Contraste élevé', install:'Installer', save:'Enregistrer', save_ok:'Paramètres sauvegardés', reset_confirm:'Réinitialiser tous les paramètres ?', reset_all:'Tout réinitialiser', layout:'Disposition', swap:'Échanger',
     fit_h:'Ajuster hauteur', fit_w:'Ajuster largeur', tagline:'Caméra de documents web',
@@ -1250,7 +1255,7 @@ const LANGS = {
     settings:'Einstellungen', lang:'Sprache', shortcuts:'Tastenkürzel', pin_ui:'UI anpinnen',
     laser:'Laserpointer', highlight:'Textmarker', spotlight:'Spotlight', ruler:'Lineal', grid:'Raster', quality:'Bild', keystone:'Trapezkorrektur',
     color:'Farbe', size:'Größe', shape:'Form', darkness:'Dunkelheit', softness:'Weichheit',
-    width:'Breite', height:'Höhe', reset:'Reset', auto:'Auto', no_video:'Kein Video', opacity:'Deckkraft',
+    width:'Breite', height:'Höhe', reset:'Reset', auto:'Auto', no_video:'Kein Video', opacity:'Deckkraft', position:'Position',
     ks_v:'Vertikal', ks_h:'Horizontal', ks_angle:'Winkel',
     stop:'Stoppen', hc:'Hoher Kontrast', install:'App installieren', save:'Einstellungen speichern', save_ok:'Einstellungen gespeichert', reset_confirm:'Alle Einstellungen zurücksetzen?', reset_all:'Alles zurücksetzen', layout:'Layout', swap:'Tauschen',
     fit_h:'Höhe anpassen', fit_w:'Breite anpassen', tagline:'Einfache Web-Dokumentenkamera',
@@ -1276,7 +1281,7 @@ const LANGS = {
     settings:'Configurações', lang:'Idioma', shortcuts:'Atalhos', pin_ui:'Fixar UI',
     laser:'Apontador laser', highlight:'Marcador', spotlight:'Holofote', ruler:'Régua', grid:'Grade', quality:'Imagem', keystone:'Trapézio',
     color:'Cor', size:'Tamanho', shape:'Forma', darkness:'Escuridão', softness:'Suavidade',
-    width:'Largura', height:'Altura', reset:'Reset', auto:'Auto', no_video:'Sem vídeo', opacity:'Opacidade',
+    width:'Largura', height:'Altura', reset:'Reset', auto:'Auto', no_video:'Sem vídeo', opacity:'Opacidade', position:'Posição',
     ks_v:'Vertical', ks_h:'Horizontal', ks_angle:'Ângulo',
     stop:'Parar', hc:'Alto contraste', install:'Instalar app', save:'Salvar configurações', save_ok:'Configurações salvas', reset_confirm:'Redefinir todas as configurações?', reset_all:'Redefinir tudo', layout:'Layout', swap:'Trocar',
     fit_h:'Ajustar altura', fit_w:'Ajustar largura', tagline:'Câmera de documentos web',
@@ -1302,7 +1307,7 @@ const LANGS = {
     settings:'الإعدادات', lang:'اللغة', shortcuts:'اختصارات', pin_ui:'تثبيت UI',
     laser:'مؤشر ليزر', highlight:'قلم تظليل', spotlight:'بقعة ضوء', ruler:'مسطرة', grid:'شبكة', quality:'الصورة', keystone:'تصحيح شبه منحرف',
     color:'اللون', size:'الحجم', shape:'الشكل', darkness:'الظلام', softness:'النعومة',
-    width:'العرض', height:'الارتفاع', reset:'إعادة', auto:'تلقائي', no_video:'لا يوجد فيديو', opacity:'الشفافية',
+    width:'العرض', height:'الارتفاع', reset:'إعادة', auto:'تلقائي', no_video:'لا يوجد فيديو', opacity:'الشفافية', position:'الموضع',
     ks_v:'رأسي', ks_h:'أفقي', ks_angle:'الزاوية',
     stop:'إيقاف', hc:'تباين عالٍ', install:'تثبيت التطبيق', save:'حفظ الإعدادات', save_ok:'تم حفظ الإعدادات', reset_confirm:'إعادة تعيين جميع الإعدادات المحفوظة؟', reset_all:'إعادة تعيين الكل', layout:'تخطيط', swap:'تبديل المصدر',
     fit_h:'ملاءمة الارتفاع', fit_w:'ملاءمة العرض', tagline:'كاميرا وثائق بسيطة للويب',
@@ -1357,6 +1362,9 @@ function applyLang() {
   setText('q-auto-label', T.auto); setText('q-invert-label', T.invert || 'Invert'); setText('q-reset-label', T.reset);
   setText('t-trail', T.trail || 'Trail');
   setText('t-hl-color', T.color); setText('t-hl-width', T.width); setText('t-hl-opacity', T.opacity || 'Opacity');
+  setText('t-corner-pos', T.position || 'Position');
+  setText('t-corner-opacity', T.opacity || 'Opacity');
+  setText('t-overlay-opacity', T.opacity || 'Opacity');
   setText('t-r-unit', T.r_unit || 'Unit');
   setText('runit-px-btn', T.r_unit_px || 'Pixel');
   setText('runit-num-btn', T.r_unit_num || '数直線');
@@ -1417,6 +1425,7 @@ let activeCam1Id = null;
 let pipVideoEl = null, pipSwapBtn = null, dividerDragging = false;
 let rotation = 0, zoomLevel = 1, panX = 0, panY = 0;
 let pipWindow = null, cameras = [];
+let cam1Visible = true, cam2Visible = true;
 let isDragging = false, lastX = 0, lastY = 0, pinchDist = 0;
 let uiPinned = false, uiVisible = true, hideTimer = null;
 const isMobile = () => /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) || navigator.maxTouchPoints > 2;
@@ -1458,7 +1467,7 @@ let qInvert = false;
 let torch1On = false, torch2On = false;
 
 // Corner PiP & overlay state
-let overlayOpacity = 0.45, cornerPos = 'br';
+let overlayOpacity = 0.45, cornerOpacity = 1.0, cornerPos = 'br';
 let cornerCustomX = null, cornerCustomY = null, cornerW = 0, cornerH = 0;
 let cornerDragging = false, cornerResizing = false;
 let cdsx = 0, cdsy = 0, cdx0 = 0, cdy0 = 0, crsx = 0, crsy = 0, crw0 = 0, crh0 = 0;
@@ -1593,8 +1602,8 @@ function togglePanel(panel) {
 
 // ─── Dual source / layout ─────────────────────────────────────────────────────
 function streamOf(src) {
-  if (src === 'cam') return camStream;
-  if (src === 'cam2') return cam2Stream;
+  if (src === 'cam') return (cam1Visible ? camStream : null);
+  if (src === 'cam2') return (cam2Visible ? cam2Stream : null);
   return screenStream;
 }
 function secondarySrc() {
@@ -1630,6 +1639,7 @@ function stopAllStreams() {
   if (activeMode) setActiveMode(null);
   if (layout !== 'single') { layout = 'single'; applyLayout(); }
   primarySrc = 'cam';
+  cam1Visible = true; cam2Visible = true;
   cam1Check.checked = false;
   cam2Check.checked = false;
   document.getElementById('screen-btn').classList.remove('active');
@@ -1675,10 +1685,11 @@ function applyLayout() {
   viewport.className = layout;
   viewport.style.setProperty('--split', splitPos + '%');
 
-  if (layout === 'corner') { cornerCustomX = null; cornerCustomY = null; applyCornerPosition(); }
+  if (layout === 'corner') { cornerCustomX = null; cornerCustomY = null; applyCornerPosition(); paneB.style.opacity = cornerOpacity; }
   if (layout === 'overlay') paneB.style.opacity = overlayOpacity;
 
   document.getElementById('corner-pos-row').style.display = layout === 'corner' ? '' : 'none';
+  document.getElementById('corner-opacity-row').style.display = layout === 'corner' ? '' : 'none';
   document.getElementById('overlay-opacity-row').style.display = layout === 'overlay' ? '' : 'none';
   document.querySelectorAll('#layout-types .seg-btn').forEach(b => b.classList.toggle('active', b.dataset.layout === layout));
   document.getElementById('layout-btn').classList.toggle('active', layout !== 'single');
@@ -1849,8 +1860,8 @@ async function enumerateCameras() {
 function updateLayoutBtnVisibility() {
   const hasSecond = !!(cam2Stream || screenStream);
   document.getElementById('layout-btn').style.display = hasSecond ? '' : 'none';
-  cam1Check.checked = !!camStream;
-  cam2Check.checked = !!cam2Stream;
+  cam1Check.checked = !!camStream && cam1Visible;
+  cam2Check.checked = !!cam2Stream && cam2Visible;
   document.getElementById('screen-btn').classList.toggle('active', !!screenStream);
 }
 
@@ -1932,6 +1943,7 @@ async function startCamera(deviceId) {
     if (layout === 'single') primarySrc = 'cam';
     loadPrimCamState(newId); // restore state for new camera
     activeCam1Id = newId;
+    cam1Visible = true;
     attachStreams(); applyTransform(); showUI();
     updateLayoutBtnVisibility();
     await checkTorch(camStream, 'torch1-btn');
@@ -1954,6 +1966,7 @@ async function startCam2(deviceId) {
       audio: false,
     });
     cam2DeviceId = deviceId;
+    cam2Visible = true;
     showLoading(false);
     if (layout === 'single') {
       layout = window.innerWidth >= window.innerHeight ? 'lr' : 'tb';
@@ -3052,45 +3065,47 @@ appIcon.addEventListener('click', () => {
   else startCamera(cameras[0]?.deviceId);
 });
 
-// Cam1 checkbox: enable/disable camera 1
+// Cam1 checkbox: show/hide camera 1; starts stream if not yet connected
 cam1Check.addEventListener('change', async () => {
-  if (!cam1Check.checked) {
-    if (camStream) {
-      camStream.getTracks().forEach(t => t.stop()); camStream = null;
-      hideTorch(1);
-      if (primarySrc === 'cam') primarySrc = cam2Stream ? 'cam2' : (screenStream ? 'screen' : 'cam');
-      if (layout !== 'single' && !cam2Stream && !screenStream) { layout = 'single'; applyLayout(); }
-      attachStreams(); updateLayoutBtnVisibility();
-    }
-  } else {
+  if (camStream) {
+    // Stream already running — just toggle display visibility
+    cam1Visible = cam1Check.checked;
+    attachStreams(); updateLayoutBtnVisibility();
+  } else if (cam1Check.checked) {
+    // Not yet connected — start the camera
     const id = sourceSelect.value || cameras[0]?.deviceId;
-    if (id) await startCamera(id); else showToast(T.no_video);
+    if (id) await startCamera(id); else { cam1Check.checked = false; showToast(T.no_video); }
   }
 });
 
-// Source select: switch camera 1 device
+// Source select: switch camera 1 device (connects if not running)
 sourceSelect.addEventListener('change', async () => {
-  if (cam1Check.checked && camStream) await startCamera(sourceSelect.value);
+  if (camStream) await startCamera(sourceSelect.value);
 });
 
-// Cam2 checkbox: enable/disable camera 2 (exclusive with screen share)
+// Cam2 checkbox: show/hide camera 2; starts stream if not yet connected (exclusive with screen share)
 cam2Check.addEventListener('change', async () => {
-  if (!cam2Check.checked) {
-    await startCam2(null);
-  } else {
+  if (cam2Stream) {
+    // Stream already running — just toggle display visibility
+    cam2Visible = cam2Check.checked;
+    attachStreams(); updateLayoutBtnVisibility();
+  } else if (cam2Check.checked) {
+    // Not yet connected — stop screen share (exclusive) and start cam2
     if (screenStream) {
       screenStream.getTracks().forEach(t => t.stop()); screenStream = null;
       if (primarySrc === 'screen') primarySrc = 'cam';
       document.getElementById('screen-btn').classList.remove('active');
     }
     const id = cam2Select.value || cameras.find(c => c.deviceId !== activeCam1Id)?.deviceId;
-    if (id) await startCam2(id); else showToast(T.no_video);
+    if (id) await startCam2(id); else { cam2Check.checked = false; showToast(T.no_video); }
+  } else {
+    // Unchecked and cam2 not running — noop
   }
 });
 
 // Cam2 select: switch camera 2 device
 cam2Select.addEventListener('change', async () => {
-  if (cam2Check.checked && cam2Stream) await startCam2(cam2Select.value);
+  if (cam2Stream) await startCam2(cam2Select.value);
 });
 
 // Corner position buttons
@@ -3103,6 +3118,13 @@ document.querySelectorAll('.cpos-btn').forEach(btn => {
     btn.classList.add('active');
     applyCornerPosition();
   });
+});
+
+// Corner opacity slider
+document.getElementById('corner-opacity-slider').addEventListener('input', e => {
+  cornerOpacity = parseInt(e.target.value) / 100;
+  document.getElementById('corner-opacity-val').textContent = e.target.value + '%';
+  if (layout === 'corner') document.getElementById('pane-b').style.opacity = cornerOpacity;
 });
 
 // Overlay opacity slider
@@ -3187,6 +3209,7 @@ function collectSettings() {
     spotShape, spotW, spotH, spotOpacity, spotFeather,
     qBright, qContrast, qSat, wbR, wbG, wbB, qInvert,
     layout, splitPos, primarySrc,
+    overlayOpacity, cornerOpacity, cornerPos,
     lang: currentLangCode,
   };
 }
@@ -3208,6 +3231,9 @@ function applyLoadedSettings(s) {
   qBright = s.qBright ?? 1; qContrast = s.qContrast ?? 1; qSat = s.qSat ?? 1;
   wbR = s.wbR ?? 1; wbG = s.wbG ?? 1; wbB = s.wbB ?? 1; qInvert = s.qInvert ?? false;
   splitPos = s.splitPos ?? 50;
+  if (s.overlayOpacity != null) { overlayOpacity = s.overlayOpacity; document.getElementById('overlay-opacity-slider').value = Math.round(overlayOpacity * 100); document.getElementById('overlay-opacity-val').textContent = Math.round(overlayOpacity * 100) + '%'; }
+  if (s.cornerOpacity != null) { cornerOpacity = s.cornerOpacity; document.getElementById('corner-opacity-slider').value = Math.round(cornerOpacity * 100); document.getElementById('corner-opacity-val').textContent = Math.round(cornerOpacity * 100) + '%'; }
+  if (s.cornerPos) { cornerPos = s.cornerPos; document.querySelectorAll('.cpos-btn').forEach(b => b.classList.toggle('active', b.dataset.pos === cornerPos)); }
   if (s.lang && LANGS[s.lang]) { currentLangCode = s.lang; try { localStorage.setItem('doccam-lang', currentLangCode); } catch(e) {} }
   // Sync all UI sliders
   const sv = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
