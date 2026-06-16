@@ -1,0 +1,2604 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0f0f0f">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<title>DocCam</title>
+<style>
+  :root {
+    --bg: #0f0f0f; --surface: #1a1a1a; --surface2: #252525; --border: #333;
+    --accent: #4f8ef7; --accent2: #7c5cfc; --text: #e8e8e8; --text2: #888;
+    --danger: #e05353; --radius: 12px; --radius-sm: 8px; --btn: 44px;
+    --tr: 0.18s cubic-bezier(.4,0,.2,1); --ui-fade: 0.3s ease;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+  #app { width: 100%; height: 100%; display: flex; flex-direction: column; position: relative; }
+
+  /* ── Viewport ── */
+  #viewport { flex: 1; position: relative; overflow: hidden; background: #000; --split: 50%; }
+  .pane { position: absolute; overflow: hidden; background: #000; }
+  .pane video { width: 100%; height: 100%; object-fit: contain; user-select: none; touch-action: none; }
+  #video { transform-origin: center center; transition: transform 0.1s ease; }
+  /* single */
+  #viewport.single #pane-a { inset: 0; }
+  #viewport.single #pane-b, #viewport.single #divider { display: none; }
+  /* left-right */
+  #viewport.lr #pane-a { top: 0; left: 0; height: 100%; width: var(--split); }
+  #viewport.lr #pane-b { top: 0; height: 100%; left: var(--split); width: calc(100% - var(--split)); }
+  #viewport.lr #divider { top: 0; height: 100%; left: var(--split); width: 12px; transform: translateX(-50%); cursor: col-resize; }
+  /* top-bottom */
+  #viewport.tb #pane-a { left: 0; top: 0; width: 100%; height: var(--split); }
+  #viewport.tb #pane-b { left: 0; width: 100%; top: var(--split); height: calc(100% - var(--split)); }
+  #viewport.tb #divider { left: 0; width: 100%; top: var(--split); height: 12px; transform: translateY(-50%); cursor: row-resize; }
+  #divider { position: absolute; z-index: 9; touch-action: none; }
+  #divider::before { content: ''; position: absolute; inset: 0; background: rgba(79,142,247,0); transition: background var(--tr); }
+  #divider:hover::before { background: rgba(79,142,247,0.18); }
+  #divider::after {
+    content: ''; position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+    background: rgba(255,255,255,0.6); border: 1px solid rgba(0,0,0,0.35); border-radius: 6px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+  }
+  #viewport.lr #divider::after { width: 4px; height: 44px; }
+  #viewport.tb #divider::after { height: 4px; width: 44px; }
+  #canvas { display: none; }
+  #grid-canvas { position: absolute; inset: 0; z-index: 2; pointer-events: none; }
+  #freeze-overlay { position: absolute; inset: 0; z-index: 3; display: none; pointer-events: none; }
+  #freeze-overlay.active { display: block; }
+  #freeze-overlay::after {
+    content: ''; position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
+    width: 10px; height: 10px; border-radius: 50%; background: var(--danger);
+    box-shadow: 0 0 8px var(--danger); animation: blink 1.2s ease-in-out infinite;
+  }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+  #spot-canvas { position: absolute; inset: 0; z-index: 4; pointer-events: none; }
+  #ruler-canvas { position: absolute; inset: 0; z-index: 5; pointer-events: none; }
+  #hl-canvas   { position: absolute; inset: 0; z-index: 6; pointer-events: none; }
+  #laser-canvas { position: absolute; inset: 0; z-index: 7; pointer-events: none; }
+  #gesture-overlay { position: absolute; inset: 0; z-index: 8; touch-action: none; }
+  #mode-overlay { position: absolute; inset: 0; z-index: 9; display: none; touch-action: none; }
+  #mode-overlay.active { display: block; }
+  #mode-overlay.laser { cursor: none; }
+  #mode-overlay.spotlight { cursor: none; }
+  #mode-overlay.ruler { cursor: grab; }
+  #mode-overlay.ruler:active { cursor: grabbing; }
+  #mode-overlay.highlight { cursor: crosshair; }
+  #flash { position: absolute; inset: 0; z-index: 50; background: #fff; opacity: 0; pointer-events: none; transition: opacity 0.05s; }
+  #flash.on { opacity: 0.85; }
+
+  /* ── UI fade layer ── */
+  #ui-layer { position: absolute; inset: 0; z-index: 20; pointer-events: none; transition: opacity var(--ui-fade); }
+  #ui-layer.hidden { opacity: 0; }
+  #ui-layer.hidden > * { pointer-events: none !important; }
+  #ui-layer > * { pointer-events: all; }
+
+  /* ── Pin button (flat, bottom-right) ── */
+  #pin-btn {
+    position: absolute; bottom: 14px; right: 12px; z-index: 30;
+    width: 34px; height: 34px; border-radius: var(--radius-sm);
+    border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.05); color: var(--text2);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; opacity: 0.5;
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    transition: background var(--tr), color var(--tr), opacity var(--tr), border-color var(--tr);
+  }
+  #pin-btn:hover { background: rgba(255,255,255,0.12); color: var(--text); opacity: 1; }
+  #pin-btn.pinned { color: var(--accent); background: rgba(79,142,247,0.15); border-color: rgba(79,142,247,0.4); opacity: 1; }
+
+  /* ── Top bar ── */
+  #topbar {
+    position: absolute; top: 0; left: 0; right: 0;
+    display: flex; align-items: center; gap: 6px; padding: 10px 12px;
+    background: linear-gradient(to bottom, rgba(0,0,0,0.72) 0%, transparent 100%);
+  }
+  #app-icon {
+    width: 34px; height: 34px; flex-shrink: 0; cursor: pointer; color: var(--text);
+    display: flex; align-items: center; justify-content: center;
+    transition: color var(--tr), transform var(--tr);
+  }
+  #app-icon:hover { color: var(--accent); transform: scale(1.06); }
+  #app-icon .ic-stop { display: none; }
+  #app-icon.live:hover .ic-cam { display: none; }
+  #app-icon.live:hover .ic-stop { display: block; }
+  #app-icon.live:hover { color: var(--danger); }
+  #source-select {
+    flex: 1; max-width: 240px;
+    background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12);
+    color: var(--text); padding: 0 28px 0 10px; height: 36px;
+    border-radius: var(--radius-sm); font-size: 13px; cursor: pointer;
+    outline: none; appearance: none; -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23888' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 10px center;
+  }
+  #source-select option { background: #222; color: #fff; }
+  .btn-top {
+    width: 36px; height: 36px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.1);
+    background: rgba(255,255,255,0.08); color: var(--text2);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; flex-shrink: 0; transition: background var(--tr), color var(--tr);
+  }
+  .btn-top:hover { background: rgba(255,255,255,0.16); color: var(--text); }
+  .btn-top.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+  /* ── Bottom controls ── */
+  #controls {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    padding: 12px 12px calc(env(safe-area-inset-bottom,0px) + 14px);
+    background: linear-gradient(to top, rgba(0,0,0,0.78) 0%, transparent 100%);
+    display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap;
+  }
+  .btn {
+    width: var(--btn); height: var(--btn); border-radius: 50%;
+    background: rgba(255,255,255,0.1); color: var(--text);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; position: relative;
+    transition: background var(--tr), transform var(--tr);
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    border: 1px solid rgba(255,255,255,0.1); flex-shrink: 0;
+  }
+  .btn:hover { background: rgba(255,255,255,0.18); transform: scale(1.05); }
+  .btn:active { transform: scale(0.93); }
+  .btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn.large { width: 54px; height: 54px; }
+  .btn svg { pointer-events: none; }
+  .sep { width: 1px; height: 28px; background: rgba(255,255,255,0.12); flex-shrink: 0; }
+
+  /* ── Zoom label ── */
+  #zoom-label {
+    background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 20px; padding: 0 10px; height: 34px;
+    display: flex; align-items: center; font-size: 12px; font-weight: 600;
+    color: var(--text2); min-width: 52px; justify-content: center;
+    cursor: pointer; transition: background var(--tr);
+  }
+  #zoom-label:hover { background: rgba(255,255,255,0.15); color: var(--text); }
+
+  /* ── Popups (zoom + tool panels) ── */
+  #zoom-popup, .popup {
+    position: absolute; bottom: 76px; left: 50%; transform: translateX(-50%);
+    background: rgba(20,20,20,0.96); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 14px 16px; width: 316px;
+    display: none; flex-direction: column; gap: 11px;
+    backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+    z-index: 40; box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+  }
+  #zoom-popup.open, .popup.open { display: flex; }
+  #zoom-slider { width: 100%; accent-color: var(--accent); cursor: pointer; }
+  #zoom-presets { display: flex; gap: 5px; justify-content: center; }
+  #zoom-presets .btn { width: 34px; height: 34px; font-size: 11px; font-weight: 700; border-radius: var(--radius-sm); }
+  #zoom-reset-btn, .reset-btn {
+    border: none; border-radius: var(--radius-sm);
+    background: rgba(255,255,255,0.07); color: var(--text2);
+    font-size: 12px; padding: 7px 0; cursor: pointer; flex: 1;
+    transition: background var(--tr), color var(--tr);
+    display: flex; align-items: center; justify-content: center; gap: 5px;
+  }
+  #zoom-reset-btn:hover, .reset-btn:hover { background: rgba(255,255,255,0.14); color: var(--text); }
+
+  /* ── Mode panel ── */
+  #mode-panel {
+    position: absolute; bottom: 76px; left: 50%; transform: translateX(-50%);
+    background: rgba(18,18,18,0.96); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 13px 15px;
+    display: none; flex-direction: column; gap: 11px;
+    backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+    z-index: 41; box-shadow: 0 8px 32px rgba(0,0,0,0.65);
+    min-width: 316px;
+  }
+  #mode-panel.open { display: flex; }
+  .panel-row { display: flex; align-items: center; gap: 10px; }
+  .panel-label { font-size: 11px; color: var(--text2); white-space: nowrap; min-width: 56px; }
+
+  /* Color swatches */
+  .swatch-row { display: flex; gap: 7px; flex-wrap: wrap; }
+  .swatch, .hl-swatch {
+    width: 24px; height: 24px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.2);
+    cursor: pointer; flex-shrink: 0; transition: transform var(--tr), border-color var(--tr);
+  }
+  .swatch:hover, .hl-swatch:hover { transform: scale(1.2); }
+  .swatch.active, .hl-swatch.active { border-color: #fff; transform: scale(1.15); box-shadow: 0 0 0 1px rgba(255,255,255,0.4); }
+
+  /* Size buttons */
+  .size-row { display: flex; gap: 5px; }
+  .sz-btn, .hl-sz-btn {
+    width: 36px; height: 36px; border: 1px solid var(--border);
+    border-radius: var(--radius-sm); background: var(--surface2);
+    color: var(--text2); cursor: pointer; display: flex; align-items: center; justify-content: center;
+    transition: background var(--tr), color var(--tr), border-color var(--tr);
+  }
+  .sz-btn:hover, .hl-sz-btn:hover { background: rgba(255,255,255,0.1); color: var(--text); }
+  .sz-btn.active, .hl-sz-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .laser-dot { border-radius: 50%; background: currentColor; display: block; flex-shrink: 0; }
+
+  /* Shape / segment buttons */
+  .shape-row, .seg-row { display: flex; gap: 6px; flex-wrap: wrap; flex: 1; }
+  .shape-btn {
+    flex: 1; min-width: 40px; padding: 8px 0; border: 1px solid var(--border);
+    border-radius: var(--radius-sm); background: var(--surface2);
+    color: var(--text2); font-size: 17px; cursor: pointer; text-align: center;
+    transition: background var(--tr), border-color var(--tr), color var(--tr);
+    line-height: 1;
+  }
+  .shape-btn:hover { background: rgba(255,255,255,0.1); color: var(--text); }
+  .shape-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .seg-btn {
+    min-width: 34px; height: 34px; padding: 0 7px;
+    display: flex; align-items: center; justify-content: center;
+    border: 1px solid var(--border); border-radius: var(--radius-sm);
+    background: var(--surface2); color: var(--text2);
+    cursor: pointer; font-size: 13px; line-height: 1;
+    transition: background var(--tr), border-color var(--tr), color var(--tr);
+  }
+  .seg-btn:hover { background: rgba(255,255,255,0.1); color: var(--text); }
+  .seg-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .toggle-btn {
+    width: 38px; height: 34px; flex-shrink: 0; border: 1px solid var(--border); border-radius: var(--radius-sm);
+    background: var(--surface2); color: var(--text2); cursor: pointer; font-size: 15px;
+    display: flex; align-items: center; justify-content: center;
+    transition: background var(--tr), border-color var(--tr), color var(--tr);
+  }
+  .toggle-btn:hover { background: rgba(255,255,255,0.1); color: var(--text); }
+  .toggle-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  #q-auto { background: rgba(79,142,247,0.18); color: var(--accent); }
+  #q-auto:hover { background: rgba(79,142,247,0.3); }
+  #q-invert { background: rgba(124,92,252,0.12); color: var(--accent2); }
+  #q-invert:hover { background: rgba(124,92,252,0.25); }
+  #q-invert.active { background: var(--accent2); color: #fff; }
+
+  /* Sliders in panels */
+  .opt-slider { flex: 1; accent-color: var(--accent); cursor: pointer; min-width: 70px; }
+  .opt-val { font-size: 11px; color: var(--text2); min-width: 34px; text-align: right; font-variant-numeric: tabular-nums; }
+  .step-btn {
+    width: 20px; height: 20px; border: 1px solid var(--border);
+    border-radius: 4px; background: var(--surface2); color: var(--text2);
+    cursor: pointer; font-size: 9px; display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; padding: 0; line-height: 1; user-select: none;
+    transition: background var(--tr), color var(--tr), border-color var(--tr);
+  }
+  .step-btn:hover { background: rgba(255,255,255,0.1); color: var(--text); }
+  .step-btn:active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+  /* ── Tooltip ── */
+  [data-tip] { position: relative; }
+  [data-tip]::after {
+    content: attr(data-tip);
+    position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%);
+    background: rgba(0,0,0,0.88); color: #fff;
+    padding: 4px 8px; border-radius: 6px; font-size: 11px; white-space: nowrap;
+    opacity: 0; pointer-events: none; transition: opacity 0.15s; z-index: 100;
+  }
+  [data-tip]:hover::after { opacity: 1; }
+  #topbar [data-tip]::after { bottom: auto; top: calc(100% + 8px); }
+
+  /* ── Settings panel ── */
+  #settings-overlay {
+    position: absolute; inset: 0; z-index: 60;
+    background: rgba(0,0,0,0.55); display: none; align-items: center; justify-content: center;
+    backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+  }
+  #settings-overlay.open { display: flex; }
+  #settings-panel {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); width: min(380px, calc(100vw - 32px));
+    max-height: 84vh; overflow-y: auto; padding: 20px;
+    display: flex; flex-direction: column; gap: 16px;
+    box-shadow: 0 16px 48px rgba(0,0,0,0.7);
+  }
+  #settings-panel h2 { font-size: 15px; font-weight: 600; display: flex; align-items: center; justify-content: space-between; }
+  #settings-close { background: none; border: none; color: var(--text2); cursor: pointer; font-size: 20px; padding: 0 2px; }
+  #settings-close:hover { color: var(--text); }
+  .tab-row { display: flex; gap: 10px; border-bottom: 1px solid var(--border); }
+  .tab { background: none; border: none; color: var(--text2); padding: 6px 2px 9px; cursor: pointer; font-size: 13px; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--text); border-bottom-color: var(--accent); }
+  .settings-section { display: flex; flex-direction: column; gap: 8px; }
+  .settings-label { font-size: 11px; font-weight: 600; color: var(--text2); text-transform: uppercase; letter-spacing: 0.06em; }
+  #lang-select {
+    background: var(--surface2); border: 1px solid var(--border); color: var(--text);
+    padding: 8px 12px; border-radius: var(--radius-sm); font-size: 13px; cursor: pointer; outline: none; width: 100%;
+  }
+  .shortcut-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; }
+  .shortcut-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; color: var(--text2); }
+  .shortcut-row span:first-child { color: var(--text); }
+  kbd { display: inline-block; background: var(--surface2); border: 1px solid var(--border); border-radius: 4px; padding: 1px 6px; font-size: 11px; font-family: monospace; }
+
+  /* About */
+  .about-app { display: flex; align-items: center; gap: 12px; }
+  .about-icon { width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: var(--accent); }
+  .about-name { font-size: 18px; font-weight: 700; }
+  .about-badge { font-size: 11px; font-weight: 600; color: var(--text2); background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; padding: 1px 7px; margin-left: 6px; vertical-align: middle; }
+  .about-ver { font-size: 12px; color: var(--text2); margin-top: 2px; }
+  .about-desc { font-size: 13px; line-height: 1.65; color: var(--text2); }
+  .about-links { display: flex; flex-direction: column; gap: 10px; }
+  .about-link { display: flex; flex-direction: column; gap: 3px; }
+  .about-link > span { color: var(--text2); text-transform: uppercase; letter-spacing: .06em; font-size: 10px; font-weight: 600; }
+  .about-link a { color: var(--accent); text-decoration: none; font-size: 12px; word-break: break-all; }
+  .about-link a:hover { text-decoration: underline; }
+
+  /* ── Toast ── */
+  #toast {
+    position: absolute; top: 56px; left: 50%; transform: translateX(-50%);
+    background: rgba(20,20,20,0.92); border: 1px solid var(--border);
+    border-radius: 20px; padding: 5px 14px; font-size: 12px; color: var(--text2);
+    opacity: 0; pointer-events: none; transition: opacity 0.25s; z-index: 70; white-space: nowrap;
+  }
+  #toast.show { opacity: 1; }
+
+  /* ── Loading / No-cam ── */
+  #loading { position: absolute; inset: 0; z-index: 10; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; background: #000; }
+  #loading.hidden { display: none; }
+  .spinner { width: 38px; height: 38px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  #loading p { color: var(--text2); font-size: 14px; }
+  #nocam { position: absolute; inset: 0; z-index: 8; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; background: var(--bg); }
+  #nocam.hidden { display: none; }
+  #nocam svg { opacity: 0.2; }
+  #nocam p { color: var(--text2); font-size: 14px; text-align: center; padding: 0 32px; line-height: 1.5; }
+  #start-btn { padding: 11px 30px; border: none; border-radius: var(--radius-sm); background: var(--accent); color: #fff; font-size: 14px; font-weight: 600; cursor: pointer; transition: background var(--tr); }
+  #start-btn:hover { background: #3d7de0; }
+
+  @media (max-width: 540px) {
+    #controls { gap: 5px; padding: 10px 6px 12px; }
+    .btn { width: 38px; height: 38px; }
+    .btn.large { width: 48px; height: 48px; }
+    #mode-panel, .popup { min-width: calc(100vw - 24px); width: calc(100vw - 24px); bottom: 70px; }
+  }
+
+  /* ── High contrast mode ── */
+  body.hc { --text: #fff; --text2: #e6e6e6; --border: #fff; }
+  body.hc .btn, body.hc .btn-top, body.hc #zoom-label {
+    background: rgba(0,0,0,0.9); border: 1.5px solid #fff; color: #fff;
+  }
+  body.hc .btn svg, body.hc .btn-top svg { stroke-width: 2.2; }
+  body.hc .btn.active, body.hc .btn-top.active { background: #fff; color: #000; border-color: #fff; }
+  body.hc #controls { background: linear-gradient(to top, rgba(0,0,0,0.96) 0%, rgba(0,0,0,0.3) 100%); }
+  body.hc #topbar { background: linear-gradient(to bottom, rgba(0,0,0,0.96) 0%, rgba(0,0,0,0.3) 100%); }
+  body.hc #source-select { background: #000; border-color: #fff; color: #fff; }
+  body.hc .popup, body.hc #zoom-popup, body.hc #mode-panel, body.hc #settings-panel { background: #000; border-color: #fff; }
+  body.hc [data-tip]::after { background: #000; border: 1px solid #fff; }
+  body.hc #pin-btn { background: rgba(0,0,0,0.9); border-color: #fff; color: #fff; opacity: 1; }
+  body.hc #start-btn { background: #fff; color: #000; }
+  body.hc .seg-btn, body.hc .sz-btn, body.hc .hl-sz-btn, body.hc .shape-btn, body.hc .toggle-btn, body.hc .reset-btn { border-color: #fff; color: #fff; }
+  body.hc .seg-btn.active, body.hc .sz-btn.active, body.hc .hl-sz-btn.active, body.hc .shape-btn.active, body.hc .toggle-btn.active { background: #fff; color: #000; }
+</style>
+</head>
+<body>
+<!-- hidden SVG filter for white balance -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <filter id="wb-filter" color-interpolation-filters="sRGB">
+    <feColorMatrix id="wb-matrix" type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 1 0"/>
+  </filter>
+</svg>
+
+<div id="app">
+  <div id="viewport" class="single">
+    <div id="pane-a" class="pane"><video id="video" playsinline autoplay muted></video></div>
+    <div id="pane-b" class="pane"><video id="video-b" playsinline autoplay muted></video></div>
+    <div id="divider"></div>
+    <canvas id="canvas"></canvas>
+    <canvas id="grid-canvas"></canvas>
+    <div id="freeze-overlay"></div>
+    <canvas id="spot-canvas"></canvas>
+    <canvas id="ruler-canvas"></canvas>
+    <canvas id="hl-canvas"></canvas>
+    <canvas id="laser-canvas"></canvas>
+    <div id="gesture-overlay"></div>
+    <div id="mode-overlay"></div>
+    <div id="flash"></div>
+  </div>
+
+  <div id="loading"><div class="spinner"></div><p id="loading-text">Initializing…</p></div>
+
+  <div id="nocam">
+    <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
+      <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/>
+      <circle cx="12" cy="13" r="3.5"/>
+    </svg>
+    <p id="nocam-text"></p>
+    <button id="start-btn"></button>
+  </div>
+
+  <!-- UI layer (auto-hides) -->
+  <div id="ui-layer">
+    <div id="topbar">
+      <div id="app-icon" data-tip="Camera">
+        <svg class="ic-cam" width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="4" y="18.8" width="15" height="2.7" rx="1.35"/>
+          <path d="M8 18.8V8.75a2 2 0 0 1 2-2h3.5"/>
+          <rect x="13.5" y="4" width="7" height="5.5" rx="1.3"/>
+          <path d="M15.6 9.5h2.8l-.5 2.1h-1.8z" fill="currentColor" stroke="none"/>
+        </svg>
+        <svg class="ic-stop" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+          <rect x="5" y="5" width="14" height="14" rx="2.5"/>
+        </svg>
+      </div>
+      <select id="source-select"></select>
+      <button class="btn-top" id="install-btn" data-tip="Install app" style="display:none">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 3v11"/><path d="M8 11l4 4 4-4"/><path d="M5 18v1a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-1"/>
+        </svg>
+      </button>
+      <button class="btn-top" id="screen-btn">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/>
+        </svg>
+      </button>
+      <button class="btn-top" id="layout-btn" data-tip="Layout (V)">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <rect x="3" y="4" width="18" height="16" rx="2"/><line x1="12" y1="4" x2="12" y2="20"/>
+        </svg>
+      </button>
+      <button class="btn-top" id="pip-btn" data-tip="PiP (P)">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="2" y="3" width="20" height="14" rx="2"/>
+          <rect x="12" y="9" width="9" height="7" rx="1" fill="currentColor" stroke="none" opacity="0.45"/>
+        </svg>
+      </button>
+      <button class="btn-top" id="fs-btn" data-tip="Fullscreen (F)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" id="fs-icon">
+          <path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3"/>
+        </svg>
+      </button>
+      <button class="btn-top" id="hc-btn" data-tip="High contrast">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="9"/>
+          <path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor" stroke="none"/>
+        </svg>
+      </button>
+      <button class="btn-top" id="settings-btn">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+      </button>
+    </div>
+
+    <div id="controls">
+      <!-- rotate (clockwise) -->
+      <button class="btn" id="rotate-btn" data-tip="Rotate (R)">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 12a9 9 0 1 1-2.64-6.36"/>
+          <polyline points="21 2.5 21 8 15.5 8"/>
+        </svg>
+      </button>
+      <!-- mirror -->
+      <button class="btn" id="mirror-btn" data-tip="Mirror (M)">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M8 4H5.5A1.5 1.5 0 0 0 4 5.5v13A1.5 1.5 0 0 0 5.5 20H8"/>
+          <path d="M16 4h2.5A1.5 1.5 0 0 1 20 5.5v13a1.5 1.5 0 0 1-1.5 1.5H16"/>
+          <line x1="12" y1="2.5" x2="12" y2="21.5" stroke-dasharray="2.2 2.7"/>
+        </svg>
+      </button>
+      <!-- keystone -->
+      <button class="btn" id="keystone-btn" data-tip="Keystone (T)">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <path d="M7 5h10l2.5 14H4.5z" stroke-linejoin="round"/>
+        </svg>
+      </button>
+      <!-- quality (moved here, next to keystone) -->
+      <button class="btn" id="quality-btn" data-tip="Image (Q)">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round">
+          <line x1="3.5" y1="6.5" x2="20.5" y2="6.5"/>
+          <line x1="3.5" y1="12" x2="20.5" y2="12"/>
+          <line x1="3.5" y1="17.5" x2="20.5" y2="17.5"/>
+          <circle cx="9" cy="6.5" r="2.3" fill="currentColor" stroke="none"/>
+          <circle cx="15" cy="12" r="2.3" fill="currentColor" stroke="none"/>
+          <circle cx="7" cy="17.5" r="2.3" fill="currentColor" stroke="none"/>
+        </svg>
+      </button>
+
+      <div class="sep"></div>
+      <div id="zoom-label" data-tip="Zoom (Z)">1.0×</div>
+      <div class="sep"></div>
+
+      <!-- freeze -->
+      <button class="btn" id="freeze-btn" data-tip="Freeze (Space)">
+        <svg id="freeze-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>
+        </svg>
+      </button>
+      <!-- screenshot -->
+      <button class="btn" id="shot-btn" data-tip="Screenshot (C)">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+          <circle cx="12" cy="13" r="4"/>
+        </svg>
+      </button>
+
+      <div class="sep"></div>
+
+      <!-- laser -->
+      <button class="btn" id="laser-btn" data-tip="Laser (L)">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <line x1="21" y1="3.2" x2="11" y2="13.2" stroke-width="2.3"/>
+          <circle cx="7.6" cy="16.6" r="1.9" fill="currentColor" stroke="none"/>
+          <path d="M7.6 11.9v1.5M7.6 21.3v-1.5M2.9 16.6h1.5M12.3 16.6h-1.5" stroke-width="1.7"/>
+        </svg>
+      </button>
+      <!-- highlighter -->
+      <button class="btn" id="hl-btn" data-tip="Highlighter (Y)">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 20h9"/><path d="M16.5 3.5l4 4L7 21l-4 1 1-4L16.5 3.5z"/>
+        </svg>
+      </button>
+      <!-- spotlight -->
+      <button class="btn" id="spot-btn" data-tip="Spotlight (H)">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10" fill="currentColor" opacity="0.15" stroke="currentColor" stroke-width="1.5"/>
+          <circle cx="12" cy="12" r="4.5"/>
+        </svg>
+      </button>
+      <!-- ruler -->
+      <button class="btn" id="ruler-btn" data-tip="Ruler (U)">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round">
+          <rect x="2" y="8.5" width="20" height="7" rx="1.4"/>
+          <path d="M6 8.5v3.2M10 8.5v4.4M14 8.5v3.2M18 8.5v4.4" stroke-linecap="round"/>
+        </svg>
+      </button>
+      <!-- grid -->
+      <button class="btn" id="grid-btn" data-tip="Grid (G)">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <rect x="3" y="3" width="18" height="18" rx="1.5"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/>
+        </svg>
+      </button>
+
+    </div>
+  </div>
+
+  <!-- Pin button (always visible, bottom-right) -->
+  <button id="pin-btn" data-tip="Pin UI">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M9 4h6l-1 5 3 3v2H7v-2l3-3z"/><line x1="12" y1="14" x2="12" y2="21"/>
+    </svg>
+  </button>
+
+  <!-- Zoom popup -->
+  <div id="zoom-popup">
+    <input type="range" id="zoom-slider" min="1" max="8" step="0.1" value="1">
+    <div id="zoom-presets">
+      <button class="btn" data-zoom="1">1×</button>
+      <button class="btn" data-zoom="1.5">1.5×</button>
+      <button class="btn" data-zoom="2">2×</button>
+      <button class="btn" data-zoom="3">3×</button>
+      <button class="btn" data-zoom="4">4×</button>
+    </div>
+    <div class="panel-row" style="gap:8px">
+      <button id="fit-h-btn" class="reset-btn" data-tip="Fit height">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="5" y="3" width="14" height="18" rx="2"/><polyline points="9 7.5 12 4.5 15 7.5"/><polyline points="9 16.5 12 19.5 15 16.5"/>
+        </svg>
+        <span id="fit-h-label">Fit height</span>
+      </button>
+      <button id="fit-w-btn" class="reset-btn" data-tip="Fit width">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="5" width="18" height="14" rx="2"/><polyline points="7.5 9 4.5 12 7.5 15"/><polyline points="16.5 9 19.5 12 16.5 15"/>
+        </svg>
+        <span id="fit-w-label">Fit width</span>
+      </button>
+    </div>
+    <button id="zoom-reset-btn">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/>
+        <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/>
+      </svg>
+      <span id="zoom-reset-label">Fit / Reset</span>
+    </button>
+  </div>
+
+  <!-- Keystone panel -->
+  <div id="keystone-panel" class="popup">
+    <div class="panel-row">
+      <span class="panel-label" id="t-ks-v">Vertical</span>
+      <input type="range" class="opt-slider" id="ks-v" min="-30" max="30" value="0">
+      <span class="opt-val" id="ks-v-val">0°</span>
+    </div>
+    <div class="panel-row">
+      <span class="panel-label" id="t-ks-h">Horizontal</span>
+      <input type="range" class="opt-slider" id="ks-h" min="-30" max="30" value="0">
+      <span class="opt-val" id="ks-h-val">0°</span>
+    </div>
+    <div class="panel-row">
+      <span class="panel-label" id="t-ks-angle">Angle</span>
+      <input type="range" class="opt-slider" id="ks-angle" min="-20" max="20" step="0.5" value="0">
+      <span class="opt-val" id="ks-angle-val">0°</span>
+    </div>
+    <div class="panel-row">
+      <span class="panel-label" id="t-ks-zoom">Zoom</span>
+      <input type="range" class="opt-slider" id="ks-zoom" min="1" max="8" step="0.1" value="1">
+      <span class="opt-val" id="ks-zoom-val">1.0×</span>
+    </div>
+    <button class="reset-btn" id="ks-reset"><span id="ks-reset-label">Reset</span></button>
+  </div>
+
+  <!-- Grid panel -->
+  <div id="grid-panel" class="popup">
+    <div class="seg-row" id="grid-types">
+      <button class="seg-btn active" data-grid="" title="off">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="5" x2="19" y2="19"/><line x1="19" y1="5" x2="5" y2="19"/></svg>
+      </button>
+      <button class="seg-btn" data-grid="h2" title="halves H">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="1.5"/><line x1="3" y1="12" x2="21" y2="12"/></svg>
+      </button>
+      <button class="seg-btn" data-grid="v2" title="halves V">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="1.5"/><line x1="12" y1="3" x2="12" y2="21"/></svg>
+      </button>
+      <button class="seg-btn" data-grid="4" title="quarters">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="1.5"/><line x1="12" y1="3" x2="12" y2="21"/><line x1="3" y1="12" x2="21" y2="12"/></svg>
+      </button>
+      <button class="seg-btn" data-grid="9" title="3x3">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="1.5"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/></svg>
+      </button>
+      <button class="seg-btn" data-grid="16" title="4x4">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3" y="3" width="18" height="18" rx="1.5"/><line x1="7.5" y1="3" x2="7.5" y2="21"/><line x1="12" y1="3" x2="12" y2="21"/><line x1="16.5" y1="3" x2="16.5" y2="21"/><line x1="3" y1="7.5" x2="21" y2="7.5"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="16.5" x2="21" y2="16.5"/></svg>
+      </button>
+      <button class="seg-btn" data-grid="cells" title="cells">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3" y="3" width="18" height="18" rx="1.5"/><path d="M8 3v18M13 3v18M18 3v18M3 8h18M3 13h18M3 18h18"/></svg>
+      </button>
+    </div>
+    <div class="panel-row" id="grid-cell-row">
+      <span class="panel-label" id="t-grid-cell">Cell</span>
+      <input type="range" class="opt-slider" id="grid-cell" min="16" max="240" value="64">
+      <span class="opt-val" id="grid-cell-val">64</span>
+    </div>
+  </div>
+
+  <!-- Quality panel -->
+  <div id="quality-panel" class="popup">
+    <div class="panel-row">
+      <span class="panel-label" id="t-q-bright">Brightness</span>
+      <input type="range" class="opt-slider" id="q-bright" min="40" max="180" value="100">
+      <span class="opt-val" id="q-bright-val">100%</span>
+    </div>
+    <div class="panel-row">
+      <span class="panel-label" id="t-q-contrast">Contrast</span>
+      <input type="range" class="opt-slider" id="q-contrast" min="40" max="180" value="100">
+      <span class="opt-val" id="q-contrast-val">100%</span>
+    </div>
+    <div class="panel-row">
+      <span class="panel-label" id="t-q-sat">Saturation</span>
+      <input type="range" class="opt-slider" id="q-sat" min="0" max="200" value="100">
+      <span class="opt-val" id="q-sat-val">100%</span>
+    </div>
+    <div class="panel-row">
+      <span class="panel-label" id="t-q-wb">White bal.</span>
+      <input type="range" class="opt-slider" id="q-wb" min="-100" max="100" value="0">
+      <span class="opt-val" id="q-wb-val">0</span>
+    </div>
+    <div class="panel-row" style="gap:8px">
+      <button id="q-auto" class="reset-btn"><span id="q-auto-label">Auto</span></button>
+      <button id="q-invert" class="reset-btn"><span id="q-invert-label">Invert</span></button>
+      <button id="q-reset" class="reset-btn"><span id="q-reset-label">Reset</span></button>
+    </div>
+  </div>
+
+  <!-- Layout panel (single / split / swap) -->
+  <div id="layout-panel" class="popup">
+    <div class="seg-row" id="layout-types">
+      <button class="seg-btn active" data-layout="single" title="single">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="14" rx="2"/></svg>
+      </button>
+      <button class="seg-btn" data-layout="lr" title="left-right">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="14" rx="2"/><line x1="12" y1="5" x2="12" y2="19"/></svg>
+      </button>
+      <button class="seg-btn" data-layout="tb" title="top-bottom">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="14" rx="2"/><line x1="3" y1="12" x2="21" y2="12"/></svg>
+      </button>
+    </div>
+    <button class="reset-btn" id="swap-btn">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/>
+      </svg>
+      <span id="swap-label">Swap</span>
+    </button>
+  </div>
+
+  <!-- Mode panel (laser + spotlight + ruler options) -->
+  <div id="mode-panel">
+    <!-- Laser options -->
+    <div id="laser-opts">
+      <div class="panel-row">
+        <span class="panel-label" id="t-color">Color</span>
+        <div class="swatch-row" id="swatch-row">
+          <div class="swatch active" data-color="#ff2222" style="background:#ff2222"></div>
+          <div class="swatch" data-color="#ff8800" style="background:#ff8800"></div>
+          <div class="swatch" data-color="#ffee00" style="background:#ffee00"></div>
+          <div class="swatch" data-color="#22dd44" style="background:#22dd44"></div>
+          <div class="swatch" data-color="#00ccff" style="background:#00ccff"></div>
+          <div class="swatch" data-color="#4488ff" style="background:#4488ff"></div>
+          <div class="swatch" data-color="#cc44ff" style="background:#cc44ff"></div>
+          <div class="swatch" data-color="#ffffff" style="background:#fff"></div>
+        </div>
+      </div>
+      <div class="panel-row">
+        <span class="panel-label" id="t-size">Size</span>
+        <div class="size-row">
+          <button class="sz-btn" data-sz="4"><span class="laser-dot" style="width:4px;height:4px"></span></button>
+          <button class="sz-btn active" data-sz="8"><span class="laser-dot" style="width:8px;height:8px"></span></button>
+          <button class="sz-btn" data-sz="14"><span class="laser-dot" style="width:14px;height:14px"></span></button>
+          <button class="sz-btn" data-sz="22"><span class="laser-dot" style="width:22px;height:22px"></span></button>
+        </div>
+      </div>
+      <div class="panel-row">
+        <span class="panel-label" id="t-trail">Trail</span>
+        <div class="seg-row" id="trail-btns">
+          <button class="seg-btn" data-trail="1000">1s</button>
+          <button class="seg-btn active" data-trail="3000">3s</button>
+          <button class="seg-btn" data-trail="5000">5s</button>
+          <button class="seg-btn" data-trail="10000">10s</button>
+        </div>
+      </div>
+    </div>
+    <!-- Spotlight options -->
+    <div id="spot-opts" style="display:none">
+      <div class="panel-row">
+        <span class="panel-label" id="t-shape">Shape</span>
+        <div class="shape-row">
+          <button class="shape-btn active" data-shape="circle">●</button>
+          <button class="shape-btn" data-shape="ellipse">⬭</button>
+          <button class="shape-btn" data-shape="square">■</button>
+          <button class="shape-btn" data-shape="rect">▬</button>
+        </div>
+      </div>
+      <div class="panel-row" id="spot-w-row">
+        <span class="panel-label" id="t-spot-w">Width</span>
+        <input type="range" class="opt-slider" id="spot-w-slider" min="40" max="800" value="140">
+        <span class="opt-val" id="spot-w-val">140</span>
+      </div>
+      <div class="panel-row" id="spot-h-row" style="display:none">
+        <span class="panel-label" id="t-spot-h">Height</span>
+        <input type="range" class="opt-slider" id="spot-h-slider" min="40" max="800" value="90">
+        <span class="opt-val" id="spot-h-val">90</span>
+      </div>
+      <div class="panel-row">
+        <span class="panel-label" id="t-darkness">Darkness</span>
+        <input type="range" class="opt-slider" id="spot-dark-slider" min="20" max="95" value="65">
+        <span class="opt-val" id="spot-dark-val">65%</span>
+      </div>
+      <div class="panel-row">
+        <span class="panel-label" id="t-softness">Softness</span>
+        <input type="range" class="opt-slider" id="spot-soft-slider" min="0" max="40" value="10">
+        <span class="opt-val" id="spot-soft-val">10</span>
+      </div>
+    </div>
+    <!-- Ruler options -->
+    <div id="ruler-opts" style="display:none">
+      <div class="panel-row">
+        <span class="panel-label" id="t-r-unit">Unit</span>
+        <div class="seg-row" id="ruler-units">
+          <button class="seg-btn active" data-runit="px" id="runit-px-btn">Pixel</button>
+          <button class="seg-btn" data-runit="num" id="runit-num-btn">数直線</button>
+        </div>
+      </div>
+      <div class="panel-row">
+        <span class="panel-label" id="t-r-style">Style</span>
+        <div class="seg-row" id="ruler-styles">
+          <button class="seg-btn active" data-rstyle="solid">●</button>
+          <button class="seg-btn" data-rstyle="semi">◐</button>
+          <button class="seg-btn" data-rstyle="ticks">|‖|</button>
+        </div>
+        <button class="toggle-btn" id="ruler-cross-btn" data-tip="Cross">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round">
+            <rect x="2.5" y="9.5" width="19" height="5" rx="1.3"/>
+            <rect x="9.5" y="2.5" width="5" height="19" rx="1.3"/>
+            <path d="M6.5 9.5v5M17.5 9.5v5M9.5 6.5h5M9.5 17.5h5" stroke-width="1" opacity="0.65"/>
+          </svg>
+        </button>
+      </div>
+      <div class="panel-row" id="ruler-cross-angle-row" style="display:none">
+        <span class="panel-label" id="t-r-cross-angle">交差角</span>
+        <input type="range" class="opt-slider" id="ruler-cross-angle-slider" min="10" max="170" value="90">
+        <span class="opt-val" id="ruler-cross-angle-val">90°</span>
+      </div>
+      <div class="panel-row">
+        <span class="panel-label" id="t-r-tick">Scale</span>
+        <input type="range" class="opt-slider" id="ruler-tick" min="8" max="80" value="20">
+        <span class="opt-val" id="ruler-tick-val">20</span>
+      </div>
+      <div class="panel-row">
+        <span class="panel-label" id="t-r-angle">Angle</span>
+        <input type="range" class="opt-slider" id="ruler-angle" min="-180" max="180" value="0">
+        <span class="opt-val" id="ruler-angle-val">0°</span>
+      </div>
+    </div>
+    <!-- Highlighter options -->
+    <div id="hl-opts" style="display:none">
+      <div class="panel-row">
+        <span class="panel-label" id="t-hl-color">Color</span>
+        <div class="swatch-row" id="hl-swatch-row">
+          <div class="hl-swatch active" data-color="#ffee00" style="background:#ffee00"></div>
+          <div class="hl-swatch" data-color="#00ff88" style="background:#00ff88"></div>
+          <div class="hl-swatch" data-color="#00ccff" style="background:#00ccff"></div>
+          <div class="hl-swatch" data-color="#ff66aa" style="background:#ff66aa"></div>
+          <div class="hl-swatch" data-color="#ff8800" style="background:#ff8800"></div>
+          <div class="hl-swatch" data-color="#ffffff" style="background:#fff"></div>
+        </div>
+      </div>
+      <div class="panel-row">
+        <span class="panel-label" id="t-hl-width">Width</span>
+        <div class="seg-row">
+          <button class="hl-sz-btn" data-sz="8"><span class="laser-dot" style="width:8px;height:8px"></span></button>
+          <button class="hl-sz-btn active" data-sz="16"><span class="laser-dot" style="width:16px;height:16px"></span></button>
+          <button class="hl-sz-btn" data-sz="28"><span class="laser-dot" style="width:28px;height:28px"></span></button>
+          <button class="hl-sz-btn" data-sz="44"><span class="laser-dot" style="width:44px;height:44px"></span></button>
+        </div>
+      </div>
+      <div class="panel-row">
+        <span class="panel-label" id="t-hl-opacity">Opacity</span>
+        <input type="range" class="opt-slider" id="hl-opacity-slider" min="10" max="80" value="40">
+        <span class="opt-val" id="hl-opacity-val">40%</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings overlay -->
+  <div id="settings-overlay">
+    <div id="settings-panel">
+      <h2><span id="settings-title">Settings</span><button id="settings-close">✕</button></h2>
+      <div class="tab-row">
+        <button class="tab active" data-tab="general" id="tab-btn-general">Settings</button>
+        <button class="tab" data-tab="about" id="tab-btn-about">About</button>
+      </div>
+      <div id="tab-general">
+        <div class="settings-section">
+          <div class="settings-label" id="lang-label">Language</div>
+          <select id="lang-select">
+            <option value="en">English</option>
+            <option value="ja">日本語</option>
+            <option value="zh">中文</option>
+            <option value="ko">한국어</option>
+            <option value="es">Español</option>
+            <option value="fr">Français</option>
+            <option value="de">Deutsch</option>
+            <option value="pt">Português</option>
+            <option value="ar">العربية</option>
+          </select>
+        </div>
+        <div class="settings-section" style="margin-top:16px">
+          <div class="settings-label" id="shortcuts-label">Shortcuts</div>
+          <div class="shortcut-grid" id="shortcut-grid"></div>
+        </div>
+      </div>
+      <div id="tab-about" style="display:none">
+        <div class="settings-section">
+          <div class="about-app">
+            <div class="about-icon">
+              <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="4" y="18.8" width="15" height="2.7" rx="1.35"/>
+                <path d="M8 18.8V8.75a2 2 0 0 1 2-2h3.5"/>
+                <rect x="13.5" y="4" width="7" height="5.5" rx="1.3"/>
+                <path d="M15.6 9.5h2.8l-.5 2.1h-1.8z" fill="currentColor" stroke="none"/>
+              </svg>
+            </div>
+            <div>
+              <div class="about-name" id="about-name">DocCam <span class="about-badge" id="about-version">v1.0.0</span></div>
+              <div class="about-ver" id="about-tagline">A simple document camera app</div>
+            </div>
+          </div>
+        </div>
+        <div class="settings-section about-links" style="margin-top:16px">
+          <div class="about-link">
+            <span id="about-repo-label">Repository</span>
+            <a href="https://github.com/akichika/doc-camera" target="_blank" rel="noopener">https://github.com/akichika/doc-camera</a>
+          </div>
+          <div class="about-link">
+            <span id="about-url-label">Public URL</span>
+            <a href="https://akichika.github.io/doc-camera/" target="_blank" rel="noopener">https://akichika.github.io/doc-camera/</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+</div>
+
+<script>
+// ─── i18n ─────────────────────────────────────────────────────────────────────
+const LANGS = {
+  en: {
+    start:'▶ Start', nocam:'Press Start to access camera or screen', loading:'Initializing…',
+    screen:'Screen (S)', cam:'Camera', freeze:'Freeze', unfreeze:'Resume',
+    shot:'Screenshot saved', pip:'PiP', pip_exit:'PiP closed', pip_unsupported:'PiP not supported',
+    zoom_reset:'Fit / Reset', mirror_on:'Mirror on', mirror_off:'Mirror off',
+    rotate:'Rotated', fs_enter:'Fullscreen', fs_exit:'Exit fullscreen',
+    settings:'Settings', lang:'Language', shortcuts:'Shortcuts', pin_ui:'Pin UI',
+    stop:'Stop', hc:'High contrast', install:'Install app',
+    laser:'Laser Pointer', highlight:'Highlighter', spotlight:'Spotlight', ruler:'Ruler', grid:'Grid', quality:'Image', keystone:'Keystone',
+    layout:'Layout', swap:'Swap source',
+    color:'Color', size:'Size', shape:'Shape', darkness:'Darkness', softness:'Softness',
+    width:'Width', height:'Height', reset:'Reset', auto:'Auto', no_video:'No video',
+    opacity:'Opacity',
+    fit_h:'Fit height', fit_w:'Fit width',
+    ks_v:'Vertical', ks_h:'Horizontal', ks_angle:'Angle',
+    g_cell:'Cell', r_style:'Style', r_tick:'Scale', r_angle:'Angle', r_cross:'Cross',
+    q_bright:'Brightness', q_contrast:'Contrast', q_sat:'Saturation', q_wb:'White bal.',
+    invert:'Invert', trail:'Trail',
+    r_unit:'Unit', r_unit_px:'Pixel', r_unit_num:'Number line', r_tick_width:'Interval',
+    r_cross_angle:'Cross angle', ks_zoom:'Zoom',
+    tab_about:'About', tagline:'A simple document camera app',
+    about_desc:'A simple, modern document camera for the web. Choose a camera or share your screen, then zoom, freeze, annotate with a laser or spotlight, overlay grids and rulers, fine-tune the image, and save screenshots — all in your browser.',
+    about_repo:'Repository', about_url:'Public URL',
+    sc_space:'Freeze', sc_c:'Screenshot', sc_m:'Mirror', sc_r:'Rotate', sc_f:'Fullscreen',
+    sc_p:'PiP', sc_s:'Screen share', sc_0:'Reset zoom', sc_z:'Zoom panel',
+    sc_l:'Laser pointer', sc_y:'Highlighter', sc_h:'Spotlight', sc_u:'Ruler', sc_g:'Grid', sc_q:'Image', sc_t:'Keystone',
+    sc_plus:'Zoom in', sc_minus:'Zoom out',
+  },
+  ja: {
+    start:'▶ 開始', nocam:'カメラまたは画面共有を開始してください', loading:'初期化中…',
+    screen:'画面共有 (S)', cam:'カメラ', freeze:'静止', unfreeze:'再開',
+    shot:'スクリーンショット', pip:'PiP', pip_exit:'PiP終了', pip_unsupported:'PiP非対応',
+    zoom_reset:'フィット / リセット', mirror_on:'左右反転ON', mirror_off:'左右反転OFF',
+    rotate:'回転', fs_enter:'全画面', fs_exit:'全画面解除',
+    settings:'設定', lang:'言語', shortcuts:'ショートカット', pin_ui:'UI固定',
+    stop:'停止', hc:'ハイコントラスト', install:'アプリをインストール',
+    laser:'レーザーポインター', highlight:'蛍光ペン', spotlight:'スポットライト', ruler:'ルーラー', grid:'グリッド', quality:'画質調整', keystone:'台形補正',
+    layout:'レイアウト', swap:'ソース入替',
+    color:'色', size:'サイズ', shape:'形状', darkness:'暗さ', softness:'ぼかし',
+    width:'幅', height:'高さ', reset:'リセット', auto:'自動', no_video:'映像なし',
+    opacity:'不透明度',
+    fit_h:'縦フィット', fit_w:'横フィット',
+    ks_v:'上下', ks_h:'左右', ks_angle:'角度',
+    g_cell:'マス', r_style:'表示', r_tick:'目盛り', r_angle:'角度', r_cross:'十字',
+    q_bright:'明るさ', q_contrast:'コントラスト', q_sat:'彩度', q_wb:'ホワイトバランス',
+    invert:'色反転', trail:'残像',
+    r_unit:'単位', r_unit_px:'Pixel', r_unit_num:'数直線', r_tick_width:'目盛幅',
+    r_cross_angle:'交差角', ks_zoom:'ズーム',
+    tab_about:'このアプリについて', tagline:'シンプルな書画カメラアプリ',
+    about_desc:'シンプルでモダンなWeb書画カメラ。カメラ選択や画面共有をして、ズーム・静止・レーザー/スポットライト・グリッド/ルーラー表示・画質調整・スクリーンショット保存などをブラウザだけで行えます。',
+    about_repo:'リポジトリ', about_url:'公開URL',
+    sc_space:'静止', sc_c:'スクリーンショット', sc_m:'左右反転', sc_r:'回転', sc_f:'全画面',
+    sc_p:'PiP', sc_s:'画面共有', sc_0:'ズームリセット', sc_z:'ズームパネル',
+    sc_l:'レーザー', sc_y:'蛍光ペン', sc_h:'スポットライト', sc_u:'ルーラー', sc_g:'グリッド', sc_q:'画質調整', sc_t:'台形補正',
+    sc_plus:'ズームイン', sc_minus:'ズームアウト',
+  },
+  zh: {
+    start:'▶ 开始', nocam:'请点击开始以访问摄像头或共享屏幕', loading:'正在初始化…',
+    screen:'共享屏幕 (S)', cam:'摄像头', freeze:'暂停', unfreeze:'继续',
+    shot:'已保存', pip:'画中画', pip_exit:'画中画已关闭', pip_unsupported:'不支持画中画',
+    zoom_reset:'适应/重置', mirror_on:'镜像开', mirror_off:'镜像关',
+    rotate:'旋转', fs_enter:'全屏', fs_exit:'退出全屏',
+    settings:'设置', lang:'语言', shortcuts:'快捷键', pin_ui:'固定UI',
+    laser:'激光笔', highlight:'荧光笔', spotlight:'聚光灯', ruler:'标尺', grid:'网格', quality:'画质', keystone:'梯形校正',
+    color:'颜色', size:'大小', shape:'形状', darkness:'暗度', softness:'柔化',
+    width:'宽', height:'高', reset:'重置', auto:'自动', no_video:'无视频', opacity:'不透明度',
+    ks_v:'垂直', ks_h:'水平', ks_angle:'角度',
+    stop:'停止', hc:'高对比度', install:'安装应用', layout:'布局', swap:'交换来源',
+    fit_h:'适应高度', fit_w:'适应宽度', tagline:'简单的网页实物投影仪',
+    g_cell:'格', r_style:'样式', r_tick:'刻度', r_angle:'角度', r_cross:'十字',
+    q_bright:'亮度', q_contrast:'对比度', q_sat:'饱和度', q_wb:'白平衡',
+    invert:'反相', trail:'残影',
+    r_unit:'单位', r_unit_px:'像素', r_unit_num:'数轴', r_tick_width:'间距',
+    r_cross_angle:'交叉角', ks_zoom:'缩放',
+    tab_about:'关于',
+    about_desc:'一个简单现代的网页实物投影仪。选择摄像头或共享屏幕，然后缩放、暂停、用激光笔或聚光灯标注、叠加网格和标尺、调整画质并保存截图——全部在浏览器中完成。',
+    about_repo:'代码库', about_url:'公开网址',
+    sc_space:'暂停', sc_c:'截图', sc_m:'镜像', sc_r:'旋转', sc_f:'全屏',
+    sc_p:'画中画', sc_s:'共享屏幕', sc_0:'重置缩放', sc_z:'缩放面板',
+    sc_l:'激光笔', sc_y:'荧光笔', sc_h:'聚光灯', sc_u:'标尺', sc_g:'网格', sc_q:'画质', sc_t:'梯形校正',
+    sc_plus:'放大', sc_minus:'缩小',
+  },
+  ko: {
+    start:'▶ 시작', nocam:'카메라 또는 화면 공유를 시작하세요', loading:'초기화 중…',
+    screen:'화면 공유 (S)', cam:'카메라', freeze:'정지', unfreeze:'재개',
+    shot:'저장됨', pip:'PiP', pip_exit:'PiP 종료', pip_unsupported:'PiP 미지원',
+    zoom_reset:'맞춤/재설정', mirror_on:'미러 켜기', mirror_off:'미러 끄기',
+    rotate:'회전', fs_enter:'전체화면', fs_exit:'전체화면 종료',
+    settings:'설정', lang:'언어', shortcuts:'단축키', pin_ui:'UI 고정',
+    laser:'레이저 포인터', highlight:'형광펜', spotlight:'스포트라이트', ruler:'자', grid:'격자', quality:'화질', keystone:'키스톤 보정',
+    color:'색상', size:'크기', shape:'모양', darkness:'어둡기', softness:'부드럽기',
+    width:'너비', height:'높이', reset:'재설정', auto:'자동', no_video:'영상 없음', opacity:'불투명도',
+    ks_v:'상하', ks_h:'좌우', ks_angle:'각도',
+    stop:'중지', hc:'고대비', install:'앱 설치', layout:'레이아웃', swap:'소스 전환',
+    fit_h:'높이 맞춤', fit_w:'너비 맞춤', tagline:'간단한 웹 실물화상기',
+    g_cell:'칸', r_style:'표시', r_tick:'눈금', r_angle:'각도', r_cross:'십자',
+    q_bright:'밝기', q_contrast:'대비', q_sat:'채도', q_wb:'화이트 밸런스',
+    invert:'반전', trail:'잔상',
+    r_unit:'단위', r_unit_px:'픽셀', r_unit_num:'수직선', r_tick_width:'간격',
+    r_cross_angle:'교차각', ks_zoom:'확대',
+    tab_about:'정보',
+    about_desc:'간단하고 현대적인 웹 실물화상기. 카메라를 선택하거나 화면을 공유한 뒤 확대·정지·레이저/스포트라이트 주석·격자/자 표시·화질 조정·스크린샷 저장을 모두 브라우저에서 할 수 있습니다.',
+    about_repo:'저장소', about_url:'공개 URL',
+    sc_space:'정지', sc_c:'스크린샷', sc_m:'미러', sc_r:'회전', sc_f:'전체화면',
+    sc_p:'PiP', sc_s:'화면 공유', sc_0:'줌 재설정', sc_z:'줌 패널',
+    sc_l:'레이저', sc_y:'형광펜', sc_h:'스포트라이트', sc_u:'자', sc_g:'격자', sc_q:'화질', sc_t:'키스톤',
+    sc_plus:'확대', sc_minus:'축소',
+  },
+  es: {
+    start:'▶ Iniciar', nocam:'Pulsa Iniciar para acceder a la cámara o pantalla', loading:'Inicializando…',
+    screen:'Pantalla (S)', cam:'Cámara', freeze:'Congelar', unfreeze:'Reanudar',
+    shot:'Guardada', pip:'PiP', pip_exit:'PiP cerrado', pip_unsupported:'PiP no soportado',
+    zoom_reset:'Ajustar/Reset', mirror_on:'Espejo activado', mirror_off:'Espejo desactivado',
+    rotate:'Rotado', fs_enter:'Pantalla completa', fs_exit:'Salir',
+    settings:'Ajustes', lang:'Idioma', shortcuts:'Atajos', pin_ui:'Fijar UI',
+    laser:'Puntero láser', highlight:'Marcador', spotlight:'Foco', ruler:'Regla', grid:'Cuadrícula', quality:'Imagen', keystone:'Trapezoidal',
+    color:'Color', size:'Tamaño', shape:'Forma', darkness:'Oscuridad', softness:'Suavidad',
+    width:'Ancho', height:'Alto', reset:'Reset', auto:'Auto', no_video:'Sin vídeo', opacity:'Opacidad',
+    ks_v:'Vertical', ks_h:'Horizontal', ks_angle:'Ángulo',
+    stop:'Detener', hc:'Alto contraste', install:'Instalar app', layout:'Diseño', swap:'Intercambiar',
+    fit_h:'Ajustar alto', fit_w:'Ajustar ancho', tagline:'Cámara de documentos web',
+    g_cell:'Celda', r_style:'Estilo', r_tick:'Escala', r_angle:'Ángulo', r_cross:'Cruz',
+    q_bright:'Brillo', q_contrast:'Contraste', q_sat:'Saturación', q_wb:'Balance de blancos',
+    invert:'Invertir', trail:'Rastro',
+    r_unit:'Unidad', r_unit_px:'Píxel', r_unit_num:'Recta num.', r_tick_width:'Intervalo',
+    r_cross_angle:'Ángulo cruce', ks_zoom:'Zoom',
+    tab_about:'Acerca de',
+    about_desc:'Una cámara de documentos sencilla y moderna para la web. Elige una cámara o comparte tu pantalla, luego haz zoom, congela, anota con láser o foco, superpone cuadrículas y reglas, ajusta la imagen y guarda capturas — todo en tu navegador.',
+    about_repo:'Repositorio', about_url:'URL pública',
+    sc_space:'Congelar', sc_c:'Captura', sc_m:'Espejo', sc_r:'Rotar', sc_f:'Pantalla completa',
+    sc_p:'PiP', sc_s:'Pantalla', sc_0:'Reset zoom', sc_z:'Panel zoom',
+    sc_l:'Láser', sc_y:'Marcador', sc_h:'Foco', sc_u:'Regla', sc_g:'Cuadrícula', sc_q:'Imagen', sc_t:'Trapezoidal',
+    sc_plus:'Acercar', sc_minus:'Alejar',
+  },
+  fr: {
+    start:'▶ Démarrer', nocam:'Appuyez sur Démarrer pour accéder à la caméra', loading:'Initialisation…',
+    screen:'Écran (S)', cam:'Caméra', freeze:'Geler', unfreeze:'Reprendre',
+    shot:'Sauvegardée', pip:'PiP', pip_exit:'PiP fermé', pip_unsupported:'PiP non supporté',
+    zoom_reset:'Ajuster/Reset', mirror_on:'Miroir activé', mirror_off:'Miroir désactivé',
+    rotate:'Pivoté', fs_enter:'Plein écran', fs_exit:'Quitter',
+    settings:'Paramètres', lang:'Langue', shortcuts:'Raccourcis', pin_ui:'Épingler UI',
+    laser:'Pointeur laser', highlight:'Surligneur', spotlight:'Projecteur', ruler:'Règle', grid:'Grille', quality:'Image', keystone:'Trapèze',
+    color:'Couleur', size:'Taille', shape:'Forme', darkness:'Obscurité', softness:'Douceur',
+    width:'Largeur', height:'Hauteur', reset:'Reset', auto:'Auto', no_video:'Pas de vidéo', opacity:'Opacité',
+    ks_v:'Vertical', ks_h:'Horizontal', ks_angle:'Angle',
+    stop:'Arrêter', hc:'Contraste élevé', install:'Installer', layout:'Disposition', swap:'Échanger',
+    fit_h:'Ajuster hauteur', fit_w:'Ajuster largeur', tagline:'Caméra de documents web',
+    g_cell:'Case', r_style:'Style', r_tick:'Échelle', r_angle:'Angle', r_cross:'Croix',
+    q_bright:'Luminosité', q_contrast:'Contraste', q_sat:'Saturation', q_wb:'Balance blancs',
+    invert:'Inverser', trail:'Traînée',
+    r_unit:'Unité', r_unit_px:'Pixel', r_unit_num:'Droite num.', r_tick_width:'Intervalle',
+    r_cross_angle:'Angle croisé', ks_zoom:'Zoom',
+    tab_about:'À propos',
+    about_desc:'Une caméra de document simple et moderne pour le web. Choisissez une caméra ou partagez votre écran, puis zoomez, figez, annotez au laser ou au projecteur, superposez grilles et règles, ajustez l’image et enregistrez des captures — le tout dans votre navigateur.',
+    about_repo:'Dépôt', about_url:'URL publique',
+    sc_space:'Geler', sc_c:'Capture', sc_m:'Miroir', sc_r:'Pivoter', sc_f:'Plein écran',
+    sc_p:'PiP', sc_s:'Écran', sc_0:'Reset zoom', sc_z:'Panneau zoom',
+    sc_l:'Laser', sc_y:'Surligneur', sc_h:'Projecteur', sc_u:'Règle', sc_g:'Grille', sc_q:'Image', sc_t:'Trapèze',
+    sc_plus:'Zoomer', sc_minus:'Dézoomer',
+  },
+  de: {
+    start:'▶ Starten', nocam:'Kamera oder Bildschirmfreigabe starten', loading:'Initialisierung…',
+    screen:'Bildschirm (S)', cam:'Kamera', freeze:'Einfrieren', unfreeze:'Fortsetzen',
+    shot:'Gespeichert', pip:'PiP', pip_exit:'PiP beendet', pip_unsupported:'PiP nicht unterstützt',
+    zoom_reset:'Anpassen/Reset', mirror_on:'Spiegeln an', mirror_off:'Spiegeln aus',
+    rotate:'Gedreht', fs_enter:'Vollbild', fs_exit:'Verlassen',
+    settings:'Einstellungen', lang:'Sprache', shortcuts:'Tastenkürzel', pin_ui:'UI anpinnen',
+    laser:'Laserpointer', highlight:'Textmarker', spotlight:'Spotlight', ruler:'Lineal', grid:'Raster', quality:'Bild', keystone:'Trapezkorrektur',
+    color:'Farbe', size:'Größe', shape:'Form', darkness:'Dunkelheit', softness:'Weichheit',
+    width:'Breite', height:'Höhe', reset:'Reset', auto:'Auto', no_video:'Kein Video', opacity:'Deckkraft',
+    ks_v:'Vertikal', ks_h:'Horizontal', ks_angle:'Winkel',
+    stop:'Stoppen', hc:'Hoher Kontrast', install:'App installieren', layout:'Layout', swap:'Tauschen',
+    fit_h:'Höhe anpassen', fit_w:'Breite anpassen', tagline:'Einfache Web-Dokumentenkamera',
+    g_cell:'Zelle', r_style:'Stil', r_tick:'Skala', r_angle:'Winkel', r_cross:'Kreuz',
+    q_bright:'Helligkeit', q_contrast:'Kontrast', q_sat:'Sättigung', q_wb:'Weißabgleich',
+    invert:'Invertieren', trail:'Spur',
+    r_unit:'Einheit', r_unit_px:'Pixel', r_unit_num:'Zahlenstrahl', r_tick_width:'Abstand',
+    r_cross_angle:'Kreuzwinkel', ks_zoom:'Zoom',
+    tab_about:'Info',
+    about_desc:'Eine einfache, moderne Dokumentenkamera fürs Web. Wähle eine Kamera oder teile deinen Bildschirm, dann zoomen, einfrieren, mit Laser oder Spotlight markieren, Raster und Lineale einblenden, das Bild anpassen und Screenshots speichern — alles im Browser.',
+    about_repo:'Repository', about_url:'Öffentliche URL',
+    sc_space:'Einfrieren', sc_c:'Screenshot', sc_m:'Spiegeln', sc_r:'Drehen', sc_f:'Vollbild',
+    sc_p:'PiP', sc_s:'Bildschirm', sc_0:'Zoom reset', sc_z:'Zoom-Panel',
+    sc_l:'Laser', sc_y:'Textmarker', sc_h:'Spotlight', sc_u:'Lineal', sc_g:'Raster', sc_q:'Bild', sc_t:'Trapez',
+    sc_plus:'Vergrößern', sc_minus:'Verkleinern',
+  },
+  pt: {
+    start:'▶ Iniciar', nocam:'Pressione Iniciar para acessar a câmera ou tela', loading:'Inicializando…',
+    screen:'Tela (S)', cam:'Câmera', freeze:'Congelar', unfreeze:'Retomar',
+    shot:'Salva', pip:'PiP', pip_exit:'PiP fechado', pip_unsupported:'PiP não suportado',
+    zoom_reset:'Ajustar/Reset', mirror_on:'Espelho ligado', mirror_off:'Espelho desligado',
+    rotate:'Rotacionado', fs_enter:'Tela cheia', fs_exit:'Sair',
+    settings:'Configurações', lang:'Idioma', shortcuts:'Atalhos', pin_ui:'Fixar UI',
+    laser:'Apontador laser', highlight:'Marcador', spotlight:'Holofote', ruler:'Régua', grid:'Grade', quality:'Imagem', keystone:'Trapézio',
+    color:'Cor', size:'Tamanho', shape:'Forma', darkness:'Escuridão', softness:'Suavidade',
+    width:'Largura', height:'Altura', reset:'Reset', auto:'Auto', no_video:'Sem vídeo', opacity:'Opacidade',
+    ks_v:'Vertical', ks_h:'Horizontal', ks_angle:'Ângulo',
+    stop:'Parar', hc:'Alto contraste', install:'Instalar app', layout:'Layout', swap:'Trocar',
+    fit_h:'Ajustar altura', fit_w:'Ajustar largura', tagline:'Câmera de documentos web',
+    g_cell:'Célula', r_style:'Estilo', r_tick:'Escala', r_angle:'Ângulo', r_cross:'Cruz',
+    q_bright:'Brilho', q_contrast:'Contraste', q_sat:'Saturação', q_wb:'Balanço de branco',
+    invert:'Inverter', trail:'Rastro',
+    r_unit:'Unidade', r_unit_px:'Pixel', r_unit_num:'Reta num.', r_tick_width:'Intervalo',
+    r_cross_angle:'Ângulo cruz', ks_zoom:'Zoom',
+    tab_about:'Sobre',
+    about_desc:'Uma câmera de documentos simples e moderna para a web. Escolha uma câmera ou compartilhe a tela, depois amplie, congele, anote com laser ou holofote, sobreponha grades e réguas, ajuste a imagem e salve capturas — tudo no navegador.',
+    about_repo:'Repositório', about_url:'URL pública',
+    sc_space:'Congelar', sc_c:'Captura', sc_m:'Espelho', sc_r:'Rotar', sc_f:'Tela cheia',
+    sc_p:'PiP', sc_s:'Tela', sc_0:'Reset zoom', sc_z:'Painel zoom',
+    sc_l:'Laser', sc_y:'Marcador', sc_h:'Holofote', sc_u:'Régua', sc_g:'Grade', sc_q:'Imagem', sc_t:'Trapézio',
+    sc_plus:'Ampliar', sc_minus:'Reduzir',
+  },
+  ar: {
+    start:'▶ ابدأ', nocam:'اضغط ابدأ للوصول إلى الكاميرا أو مشاركة الشاشة', loading:'جاري التهيئة…',
+    screen:'الشاشة (S)', cam:'كاميرا', freeze:'تجميد', unfreeze:'استئناف',
+    shot:'تم الحفظ', pip:'PiP', pip_exit:'PiP مغلق', pip_unsupported:'PiP غير مدعوم',
+    zoom_reset:'ملاءمة/إعادة', mirror_on:'المرآة مفعّلة', mirror_off:'المرآة معطّلة',
+    rotate:'تدوير', fs_enter:'ملء الشاشة', fs_exit:'الخروج',
+    settings:'الإعدادات', lang:'اللغة', shortcuts:'اختصارات', pin_ui:'تثبيت UI',
+    laser:'مؤشر ليزر', highlight:'قلم تظليل', spotlight:'بقعة ضوء', ruler:'مسطرة', grid:'شبكة', quality:'الصورة', keystone:'تصحيح شبه منحرف',
+    color:'اللون', size:'الحجم', shape:'الشكل', darkness:'الظلام', softness:'النعومة',
+    width:'العرض', height:'الارتفاع', reset:'إعادة', auto:'تلقائي', no_video:'لا يوجد فيديو', opacity:'الشفافية',
+    ks_v:'رأسي', ks_h:'أفقي', ks_angle:'الزاوية',
+    stop:'إيقاف', hc:'تباين عالٍ', install:'تثبيت التطبيق', layout:'تخطيط', swap:'تبديل المصدر',
+    fit_h:'ملاءمة الارتفاع', fit_w:'ملاءمة العرض', tagline:'كاميرا وثائق بسيطة للويب',
+    g_cell:'خلية', r_style:'النمط', r_tick:'التدريج', r_angle:'الزاوية', r_cross:'متقاطع',
+    q_bright:'السطوع', q_contrast:'التباين', q_sat:'التشبع', q_wb:'توازن الأبيض',
+    invert:'عكس الألوان', trail:'الأثر',
+    r_unit:'الوحدة', r_unit_px:'بكسل', r_unit_num:'محور عددي', r_tick_width:'فاصل',
+    r_cross_angle:'زاوية التقاطع', ks_zoom:'تكبير',
+    tab_about:'حول',
+    about_desc:'كاميرا مستندات بسيطة وعصرية للويب. اختر كاميرا أو شارك شاشتك، ثم كبّر وجمّد وأشّر بالليزر أو بقعة الضوء، وأضف الشبكات والمساطر، واضبط الصورة واحفظ لقطات — كل ذلك في متصفحك.',
+    about_repo:'المستودع', about_url:'الرابط العام',
+    sc_space:'تجميد', sc_c:'لقطة', sc_m:'مرآة', sc_r:'تدوير', sc_f:'ملء الشاشة',
+    sc_p:'PiP', sc_s:'شاشة', sc_0:'إعادة الزووم', sc_z:'لوحة الزووم',
+    sc_l:'ليزر', sc_y:'قلم تظليل', sc_h:'بقعة ضوء', sc_u:'مسطرة', sc_g:'شبكة', sc_q:'الصورة', sc_t:'شبه منحرف',
+    sc_plus:'تكبير', sc_minus:'تصغير',
+  },
+};
+
+let currentLangCode = (() => {
+  try { const s = localStorage.getItem('doccam-lang'); if (s && LANGS[s]) return s; } catch(e) {}
+  return (navigator.language || navigator.userLanguage || 'en').split('-')[0].toLowerCase();
+})();
+if (!LANGS[currentLangCode]) currentLangCode = 'en';
+let T = LANGS[currentLangCode];
+
+function setText(id, val) { const el = document.getElementById(id); if (el) el.textContent = val; }
+function setTip(id, val) { const el = document.getElementById(id); if (el) el.dataset.tip = val; }
+
+function applyLang() {
+  T = LANGS[currentLangCode];
+  setText('nocam-text', T.nocam);
+  setText('start-btn', T.start);
+  setText('loading-text', T.loading);
+  setText('zoom-reset-label', T.reset);
+  setText('fit-h-label', T.fit_h || 'Fit height'); setText('fit-w-label', T.fit_w || 'Fit width');
+  setTip('fit-h-btn', T.fit_h || 'Fit height'); setTip('fit-w-btn', T.fit_w || 'Fit width');
+  setText('settings-title', T.settings);
+  setText('lang-label', T.lang);
+  setText('shortcuts-label', T.shortcuts);
+  document.getElementById('lang-select').value = currentLangCode;
+  // panel labels
+  setText('t-color', T.color); setText('t-size', T.size);
+  setText('t-shape', T.shape); setText('t-darkness', T.darkness); setText('t-softness', T.softness);
+  setText('t-spot-w', T.width); setText('t-spot-h', T.height);
+  setText('t-ks-v', T.ks_v); setText('t-ks-h', T.ks_h); setText('t-ks-angle', T.ks_angle);
+  setText('ks-reset-label', T.reset);
+  setText('t-grid-cell', T.g_cell);
+  setText('t-r-style', T.r_style); setText('t-r-tick', T.r_tick);
+  setText('t-r-angle', T.r_angle); setTip('ruler-cross-btn', T.r_cross);
+  setText('t-q-bright', T.q_bright); setText('t-q-contrast', T.q_contrast); setText('t-q-sat', T.q_sat);
+  setText('t-q-wb', T.q_wb || 'White bal.');
+  setText('q-auto-label', T.auto); setText('q-invert-label', T.invert || 'Invert'); setText('q-reset-label', T.reset);
+  setText('t-trail', T.trail || 'Trail');
+  setText('t-hl-color', T.color); setText('t-hl-width', T.width); setText('t-hl-opacity', T.opacity || 'Opacity');
+  setText('t-r-unit', T.r_unit || 'Unit');
+  setText('runit-px-btn', T.r_unit_px || 'Pixel');
+  setText('runit-num-btn', T.r_unit_num || '数直線');
+  setText('t-r-tick', rulerUnit === 'num' ? (T.r_tick_width || '目盛幅') : (T.r_tick || 'Scale'));
+  setText('t-r-cross-angle', T.r_cross_angle || 'Cross angle');
+  setText('t-ks-zoom', T.ks_zoom || 'Zoom');
+  // tabs + about
+  setText('tab-btn-general', T.settings); setText('tab-btn-about', T.tab_about);
+  setText('about-tagline', T.tagline || 'A simple document camera app');
+  setText('about-repo-label', T.about_repo); setText('about-url-label', T.about_url);
+  // tooltips
+  setTip('screen-btn', T.screen);
+  setTip('settings-btn', T.settings);
+  setTip('freeze-btn', T.freeze + ' (Space)');
+  setTip('shot-btn', T.shot.split(' ')[0] + ' (C)');
+  setTip('pip-btn', T.pip + ' (P)');
+  setTip('fs-btn', T.fs_enter + ' (F)');
+  setTip('zoom-label', 'Zoom (Z)');
+  setTip('rotate-btn', T.rotate + ' (R)');
+  setTip('mirror-btn', T.mirror_on + ' (M)');
+  setTip('keystone-btn', T.keystone + ' (T)');
+  setTip('pin-btn', T.pin_ui);
+  setTip('laser-btn', T.laser + ' (L)');
+  setTip('hl-btn', (T.highlight || 'Highlighter') + ' (Y)');
+  setTip('spot-btn', T.spotlight + ' (H)');
+  setTip('ruler-btn', T.ruler + ' (U)');
+  setTip('grid-btn', T.grid + ' (G)');
+  setTip('quality-btn', T.quality + ' (Q)');
+  setTip('layout-btn', (T.layout || 'Layout') + ' (V)');
+  setTip('hc-btn', T.hc || 'High contrast');
+  setTip('install-btn', T.install || 'Install app');
+  setText('swap-label', T.swap || 'Swap source');
+  if (appIcon) appIcon.dataset.tip = anyStream() ? (T.stop || 'Stop') : (T.cam || 'Camera');
+  document.documentElement.dir = (currentLangCode === 'ar') ? 'rtl' : 'ltr';
+  buildShortcuts();
+}
+
+function buildShortcuts() {
+  const grid = document.getElementById('shortcut-grid');
+  const sc = [
+    ['Space', T.sc_space], ['C', T.sc_c], ['M', T.sc_m], ['R', T.sc_r],
+    ['T', T.sc_t], ['F', T.sc_f], ['P', T.sc_p], ['S', T.sc_s],
+    ['L', T.sc_l], ['Y', T.sc_y || 'Highlighter'], ['H', T.sc_h], ['U', T.sc_u], ['G', T.sc_g],
+    ['Q', T.sc_q], ['Z', T.sc_z], ['V', T.layout || 'Layout'], ['X', T.swap || 'Swap'],
+    ['0', T.sc_0], ['+', T.sc_plus],
+  ];
+  grid.innerHTML = sc.map(([k, v]) => `<div class="shortcut-row"><span>${v}</span><kbd>${k}</kbd></div>`).join('');
+}
+
+// ─── State ────────────────────────────────────────────────────────────────────
+let camStream = null, screenStream = null, frozen = false, mirrorH = false;
+let layout = 'single', primarySrc = 'cam', splitPos = 50;
+let pipVideoEl = null, pipSwapBtn = null, dividerDragging = false;
+let rotation = 0, zoomLevel = 1, panX = 0, panY = 0;
+let pipWindow = null, cameras = [];
+let isDragging = false, lastX = 0, lastY = 0, pinchDist = 0;
+let uiPinned = false, uiVisible = true, hideTimer = null;
+let pipActive = false;
+let activeMode = null; // null | 'laser' | 'highlight' | 'spotlight' | 'ruler'
+let modePanelTimer = null;
+
+// Keystone
+let keystoneV = 0, keystoneH = 0, keystoneAngle = 0;
+
+// Laser state
+let laserColor = '#ff2222', laserSize = 8;
+let laserPoints = [], isLaserDrawing = false, laserRAF = null;
+let trailMs = 3000;
+let laserX = null, laserY = null;
+
+// Highlighter state
+let hlVisible = false, hlPaths = [], hlColor = '#ffee00', hlOpacity = 0.4, hlWidth = 16;
+let hlCurrentPath = null, hlDrawing = false;
+
+// Spotlight state
+let spotShape = 'circle', spotOpacity = 0.65, spotFeather = 10;
+let spotX = 0, spotY = 0, spotW = 140, spotH = 90;
+
+// Grid state
+let gridType = '', gridCell = 64;
+
+// Ruler state
+let rulerStyle = 'solid', rulerTick = 20, rulerAngle = 0, rulerCross = false;
+let rulerCrossAngle = 90; // angle of cross ruler relative to main ruler
+let rulerUnit = 'px'; // 'px' | 'num'
+let rulerX = 0, rulerY = 0;
+
+// Quality state
+let qBright = 1, qContrast = 1, qSat = 1, wbR = 1, wbG = 1, wbB = 1;
+let qInvert = false;
+
+const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+
+// ─── DOM refs ─────────────────────────────────────────────────────────────────
+const video         = document.getElementById('video');
+const videoB        = document.getElementById('video-b');
+const viewport      = document.getElementById('viewport');
+const divider       = document.getElementById('divider');
+const layoutPanel   = document.getElementById('layout-panel');
+const controlsEl    = document.getElementById('controls');
+const appIcon       = document.getElementById('app-icon');
+const canvas        = document.getElementById('canvas');
+const loading       = document.getElementById('loading');
+const nocam         = document.getElementById('nocam');
+const startBtn      = document.getElementById('start-btn');
+const sourceSelect  = document.getElementById('source-select');
+const freezeOverlay = document.getElementById('freeze-overlay');
+const flash         = document.getElementById('flash');
+const toast         = document.getElementById('toast');
+const zoomLabel     = document.getElementById('zoom-label');
+const zoomPopup     = document.getElementById('zoom-popup');
+const zoomSlider    = document.getElementById('zoom-slider');
+const uiLayer       = document.getElementById('ui-layer');
+const pinBtn        = document.getElementById('pin-btn');
+const settingsOverlay = document.getElementById('settings-overlay');
+const gridCanvas    = document.getElementById('grid-canvas');
+const spotCanvas    = document.getElementById('spot-canvas');
+const rulerCanvas   = document.getElementById('ruler-canvas');
+const hlCanvas      = document.getElementById('hl-canvas');
+const laserCanvas   = document.getElementById('laser-canvas');
+const gridCtx       = gridCanvas.getContext('2d');
+const spotCtx       = spotCanvas.getContext('2d');
+const rulerCtx      = rulerCanvas.getContext('2d');
+const hlCtx         = hlCanvas.getContext('2d');
+const laserCtx      = laserCanvas.getContext('2d');
+const modeOverlay   = document.getElementById('mode-overlay');
+const modePanel     = document.getElementById('mode-panel');
+const keystonePanel = document.getElementById('keystone-panel');
+const gridPanel     = document.getElementById('grid-panel');
+const qualityPanel  = document.getElementById('quality-panel');
+
+// ─── Canvas resize ────────────────────────────────────────────────────────────
+function resizeCanvases() {
+  const vp = document.getElementById('viewport');
+  const w = vp.clientWidth, h = vp.clientHeight;
+  [gridCanvas, spotCanvas, rulerCanvas, hlCanvas, laserCanvas].forEach(c => {
+    if (c.width !== w || c.height !== h) { c.width = w; c.height = h; }
+  });
+  drawGrid();
+  if (activeMode === 'spotlight') drawSpotlight();
+  if (activeMode === 'ruler') drawRuler();
+  redrawHL();
+}
+window.addEventListener('resize', resizeCanvases);
+
+// ─── UI auto-hide ─────────────────────────────────────────────────────────────
+// Edge hot-zones: once hidden, the UI only re-appears when the pointer enters
+// the top bar or bottom controls area — not when moving over the content.
+function inEdgeZone(y) {
+  const h = window.innerHeight;
+  return y < 84 || y > h - 116;
+}
+function showUI() {
+  uiVisible = true;
+  uiLayer.classList.remove('hidden');
+  if (!uiPinned && !pipActive) startHideTimer();
+}
+function hideUI() {
+  if (uiPinned) return;
+  uiVisible = false;
+  uiLayer.classList.add('hidden');
+  zoomPopup.classList.remove('open');
+  keystonePanel.classList.remove('open');
+  gridPanel.classList.remove('open');
+  qualityPanel.classList.remove('open');
+  layoutPanel.classList.remove('open');
+  if (activeMode) modePanel.classList.remove('open');
+  settingsOverlay.classList.remove('open');
+}
+function startHideTimer() {
+  clearTimeout(hideTimer);
+  if (!uiPinned) hideTimer = setTimeout(hideUI, 2000);
+}
+function cancelHideTimer() { clearTimeout(hideTimer); }
+
+document.getElementById('app').addEventListener('mousemove', e => {
+  if (uiPinned) return;
+  if (!uiVisible) { if (inEdgeZone(e.clientY)) showUI(); }
+  else startHideTimer();
+});
+document.getElementById('app').addEventListener('touchstart', () => {
+  if (uiPinned) return;
+  if (uiVisible) startHideTimer(); // revealing when hidden is handled by the image-area tap
+}, { passive: true });
+uiLayer.addEventListener('mouseenter', cancelHideTimer);
+uiLayer.addEventListener('mouseleave', () => { if (!settingsOverlay.classList.contains('open')) startHideTimer(); });
+[zoomPopup, keystonePanel, gridPanel, qualityPanel, layoutPanel, modePanel].forEach(p => {
+  p.addEventListener('mouseenter', () => { cancelHideTimer(); clearTimeout(modePanelTimer); });
+  p.addEventListener('mouseleave', () => { startHideTimer(); if (p === modePanel) startModePanelTimer(); });
+});
+settingsOverlay.addEventListener('mouseenter', cancelHideTimer);
+
+pinBtn.addEventListener('click', () => {
+  uiPinned = !uiPinned;
+  pinBtn.classList.toggle('pinned', uiPinned);
+  if (uiPinned) { cancelHideTimer(); showUI(); } else startHideTimer();
+});
+
+// ─── Panel management ─────────────────────────────────────────────────────────
+const toolPanels = [zoomPopup, keystonePanel, gridPanel, qualityPanel, layoutPanel];
+function closeToolPanels() { toolPanels.forEach(p => p.classList.remove('open')); }
+// Keep popups clear of the (possibly wrapped) control bar so they never overlap the icons.
+function positionPanel(panel) {
+  const h = controlsEl.offsetHeight || 70;
+  panel.style.bottom = (h + 16) + 'px';
+}
+function togglePanel(panel) {
+  const willOpen = !panel.classList.contains('open');
+  toolPanels.forEach(p => { if (p !== panel) p.classList.remove('open'); });
+  modePanel.classList.remove('open');
+  if (willOpen) positionPanel(panel);
+  panel.classList.toggle('open', willOpen);
+  if (willOpen) cancelHideTimer(); else startHideTimer();
+}
+
+// ─── Dual source / layout ─────────────────────────────────────────────────────
+function streamOf(src) { return src === 'cam' ? camStream : screenStream; }
+function secondarySrc() { return primarySrc === 'cam' ? 'screen' : 'cam'; }
+function anyStream() { return camStream || screenStream; }
+
+function attachStreams() {
+  const pri = streamOf(primarySrc);
+  const sec = streamOf(secondarySrc());
+  if (video.srcObject !== pri) { video.srcObject = pri; if (pri) video.play().catch(() => {}); }
+  if (videoB.srcObject !== sec) { videoB.srcObject = sec; if (sec) videoB.play().catch(() => {}); }
+  if (pipVideoEl) { const s = sec || pri; if (pipVideoEl.srcObject !== s) pipVideoEl.srcObject = s; }
+  if (pipSwapBtn) pipSwapBtn.style.display = (camStream && screenStream) ? 'flex' : 'none';
+  nocam.classList.toggle('hidden', !!anyStream());
+  if (appIcon) {
+    appIcon.classList.toggle('live', !!anyStream());
+    appIcon.dataset.tip = anyStream() ? (T.stop || 'Stop') : (T.cam || 'Camera');
+  }
+}
+
+function stopAllStreams() {
+  if (camStream) { camStream.getTracks().forEach(t => t.stop()); camStream = null; }
+  if (screenStream) { screenStream.getTracks().forEach(t => t.stop()); screenStream = null; }
+  if (frozen) toggleFreeze();
+  if (activeMode) setActiveMode(null);
+  if (layout !== 'single') { layout = 'single'; applyLayout(); }
+  primarySrc = 'cam';
+  attachStreams();
+  showToast(T.stop || 'Stopped');
+  showUI();
+}
+
+function applyLayout() {
+  viewport.className = layout;
+  viewport.style.setProperty('--split', splitPos + '%');
+  document.querySelectorAll('#layout-types .seg-btn').forEach(b => b.classList.toggle('active', b.dataset.layout === layout));
+  document.getElementById('layout-btn').classList.toggle('active', layout !== 'single');
+  resizeCanvases();
+}
+
+async function setLayout(l) {
+  if (l !== 'single' && !streamOf(secondarySrc())) {
+    // need the second source to show a split — acquire it
+    if (secondarySrc() === 'screen') await startScreen();
+    else await startCamera(cameras[0] && cameras[0].deviceId);
+    if (!streamOf(secondarySrc())) { showToast(T.no_video); return; }
+  }
+  layout = l;
+  applyLayout(); attachStreams();
+}
+
+function swapSources() {
+  if (!camStream || !screenStream) { showToast(T.no_video); return; }
+  primarySrc = secondarySrc();
+  attachStreams(); applyTransform();
+  showToast(T.swap || 'Swap');
+}
+
+// Draggable split divider
+function updateSplit(cx, cy) {
+  const r = viewport.getBoundingClientRect();
+  if (layout === 'lr') splitPos = clamp((cx - r.left) / r.width * 100, 10, 90);
+  else if (layout === 'tb') splitPos = clamp((cy - r.top) / r.height * 100, 10, 90);
+  viewport.style.setProperty('--split', splitPos + '%');
+  resizeCanvases();
+}
+divider.addEventListener('mousedown', e => { dividerDragging = true; e.preventDefault(); });
+divider.addEventListener('touchstart', e => { dividerDragging = true; }, { passive: true });
+window.addEventListener('mousemove', e => { if (dividerDragging) updateSplit(e.clientX, e.clientY); });
+window.addEventListener('touchmove', e => {
+  if (dividerDragging && e.touches[0]) { updateSplit(e.touches[0].clientX, e.touches[0].clientY); e.preventDefault(); }
+}, { passive: false });
+window.addEventListener('mouseup', () => { dividerDragging = false; });
+window.addEventListener('touchend', () => { dividerDragging = false; });
+
+document.getElementById('layout-btn').addEventListener('click', async e => {
+  e.stopPropagation();
+  const cycle = { single: 'lr', lr: 'tb', tb: 'single' };
+  await setLayout(cycle[layout] || 'single');
+  toolPanels.forEach(p => { if (p !== layoutPanel) p.classList.remove('open'); });
+  modePanel.classList.remove('open');
+  positionPanel(layoutPanel);
+  layoutPanel.classList.add('open');
+  cancelHideTimer();
+});
+document.querySelectorAll('#layout-types .seg-btn').forEach(btn => {
+  btn.addEventListener('click', e => { e.stopPropagation(); setLayout(btn.dataset.layout); });
+});
+document.getElementById('swap-btn').addEventListener('click', e => { e.stopPropagation(); swapSources(); });
+
+// ─── Camera enumeration ───────────────────────────────────────────────────────
+async function enumerateCameras() {
+  try {
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    cameras = devices.filter(d => d.kind === 'videoinput');
+    const prev = sourceSelect.value;
+    sourceSelect.innerHTML = '';
+    cameras.forEach((cam, i) => {
+      const opt = document.createElement('option');
+      opt.value = cam.deviceId;
+      opt.textContent = cam.label || `${T.cam} ${i + 1}`;
+      sourceSelect.appendChild(opt);
+    });
+    if (prev) sourceSelect.value = prev;
+  } catch(e) {}
+}
+
+async function startCamera(deviceId) {
+  showLoading(true);
+  try {
+    if (camStream) { camStream.getTracks().forEach(t => t.stop()); camStream = null; }
+    camStream = await navigator.mediaDevices.getUserMedia({
+      video: { deviceId: deviceId ? { exact: deviceId } : undefined, width: { ideal: 3840 }, height: { ideal: 2160 } },
+      audio: false,
+    });
+    showLoading(false);
+    await enumerateCameras();
+    if (deviceId) sourceSelect.value = deviceId;
+    if (layout === 'single') primarySrc = 'cam';
+    attachStreams(); applyTransform(); showUI();
+  } catch(e) { showLoading(false); showToast('Camera error: ' + e.message); }
+}
+
+async function startScreen() {
+  showLoading(true);
+  try {
+    if (screenStream) { screenStream.getTracks().forEach(t => t.stop()); screenStream = null; }
+    screenStream = await navigator.mediaDevices.getDisplayMedia({ video: { cursor: 'always' }, audio: false });
+    showLoading(false);
+    screenStream.getVideoTracks()[0].addEventListener('ended', () => {
+      screenStream = null;
+      if (primarySrc === 'screen') primarySrc = 'cam';
+      if (layout !== 'single') { layout = 'single'; applyLayout(); }
+      attachStreams();
+    });
+    if (layout === 'single') primarySrc = 'screen';
+    attachStreams(); applyTransform(); showUI();
+  } catch(e) {
+    showLoading(false);
+    if (e.name !== 'AbortError' && e.name !== 'NotAllowedError') showToast(e.message);
+  }
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+function showLoading(s) { loading.classList.toggle('hidden', !s); }
+
+let toastTimer = null;
+function showToast(msg, dur = 2000) {
+  toast.textContent = msg; toast.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toast.classList.remove('show'), dur);
+}
+
+function applyTransform() {
+  const t = [];
+  if (keystoneV || keystoneH) t.push('perspective(1100px)');
+  if (keystoneH) t.push(`rotateY(${keystoneH}deg)`);
+  if (keystoneV) t.push(`rotateX(${keystoneV}deg)`);
+  if (mirrorH) t.push('scaleX(-1)');
+  const totalRot = rotation + keystoneAngle;
+  if (totalRot) t.push(`rotate(${totalRot}deg)`);
+  t.push(`scale(${zoomLevel})`);
+  t.push(`translate(${panX / zoomLevel}px,${panY / zoomLevel}px)`);
+  video.style.transform = t.join(' ');
+  zoomLabel.textContent = zoomLevel.toFixed(1) + '×';
+  zoomSlider.value = zoomLevel;
+  const ksz = document.getElementById('ks-zoom');
+  if (ksz) { ksz.value = zoomLevel; document.getElementById('ks-zoom-val').textContent = zoomLevel.toFixed(1) + '×'; }
+}
+
+function applyFilters() {
+  video.style.filter = `brightness(${qBright}) contrast(${qContrast}) saturate(${qSat}) ${qInvert ? 'invert(1) ' : ''}url(#wb-filter)`;
+}
+
+function resetView() {
+  zoomLevel = 1; panX = 0; panY = 0;
+  applyTransform(); showToast(T.reset);
+  zoomPopup.classList.remove('open');
+}
+
+// ─── Freeze ───────────────────────────────────────────────────────────────────
+function toggleFreeze() {
+  frozen = !frozen;
+  const fi = document.getElementById('freeze-icon');
+  if (frozen) {
+    video.pause(); freezeOverlay.classList.add('active');
+    document.getElementById('freeze-btn').classList.add('active');
+    fi.innerHTML = '<polygon points="5 3 19 12 5 21 5 3" fill="currentColor" stroke="none"/>';
+    showToast(T.freeze);
+  } else {
+    video.play(); freezeOverlay.classList.remove('active');
+    document.getElementById('freeze-btn').classList.remove('active');
+    fi.innerHTML = '<rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>';
+    showToast(T.unfreeze);
+  }
+}
+
+// ─── Screenshot (hides UI) ────────────────────────────────────────────────────
+function takeShot() {
+  const wasVisible = uiVisible;
+  cancelHideTimer();
+  uiLayer.classList.add('hidden');
+  laserCanvas.style.display = 'none';
+  spotCanvas.style.display = 'none';
+  rulerCanvas.style.display = 'none';
+
+  canvas.width = video.videoWidth || video.clientWidth;
+  canvas.height = video.videoHeight || video.clientHeight;
+  const ctx = canvas.getContext('2d');
+  ctx.save();
+  ctx.filter = `brightness(${qBright}) contrast(${qContrast}) saturate(${qSat})`;
+  if (mirrorH) { ctx.translate(canvas.width, 0); ctx.scale(-1, 1); }
+  ctx.drawImage(video, 0, 0);
+  ctx.restore();
+
+  canvas.toBlob(blob => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.download = `doccam_${new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)}.png`;
+    a.href = url; a.click(); URL.revokeObjectURL(url);
+  }, 'image/png');
+
+  flash.classList.add('on');
+  setTimeout(() => {
+    flash.classList.remove('on');
+    laserCanvas.style.display = '';
+    spotCanvas.style.display = '';
+    rulerCanvas.style.display = '';
+    if (wasVisible) showUI();
+  }, 150);
+  showToast(T.shot);
+}
+
+// ─── Mirror / Rotate (clockwise) ──────────────────────────────────────────────
+function toggleMirror() {
+  mirrorH = !mirrorH;
+  document.getElementById('mirror-btn').classList.toggle('active', mirrorH);
+  applyTransform(); showToast(mirrorH ? T.mirror_on : T.mirror_off);
+}
+function rotateView() {
+  rotation = (rotation + 90) % 360; // +90deg = clockwise in CSS
+  applyTransform(); showToast(T.rotate + ' ' + rotation + '°');
+}
+
+// ─── Keystone ─────────────────────────────────────────────────────────────────
+const ksV = document.getElementById('ks-v'), ksH = document.getElementById('ks-h'), ksA = document.getElementById('ks-angle');
+ksV.addEventListener('input', e => { keystoneV = parseFloat(e.target.value); document.getElementById('ks-v-val').textContent = e.target.value + '°'; applyTransform(); });
+ksH.addEventListener('input', e => { keystoneH = parseFloat(e.target.value); document.getElementById('ks-h-val').textContent = e.target.value + '°'; applyTransform(); });
+ksA.addEventListener('input', e => { keystoneAngle = parseFloat(e.target.value); document.getElementById('ks-angle-val').textContent = e.target.value + '°'; applyTransform(); });
+document.getElementById('ks-reset').addEventListener('click', () => {
+  keystoneV = keystoneH = keystoneAngle = 0;
+  ksV.value = 0; ksH.value = 0; ksA.value = 0;
+  document.getElementById('ks-v-val').textContent = '0°';
+  document.getElementById('ks-h-val').textContent = '0°';
+  document.getElementById('ks-angle-val').textContent = '0°';
+  panX = 0; panY = 0;
+  applyTransform();
+});
+
+// ─── Zoom ─────────────────────────────────────────────────────────────────────
+function setZoom(val) {
+  const prev = zoomLevel;
+  zoomLevel = Math.max(1, Math.min(8, val));
+  if (prev !== zoomLevel) { panX *= zoomLevel / prev; panY *= zoomLevel / prev; }
+  applyTransform();
+}
+zoomLabel.addEventListener('click', e => { e.stopPropagation(); togglePanel(zoomPopup); });
+document.querySelectorAll('#zoom-presets .btn').forEach(btn =>
+  btn.addEventListener('click', () => { setZoom(parseFloat(btn.dataset.zoom)); zoomPopup.classList.remove('open'); startHideTimer(); })
+);
+zoomSlider.addEventListener('input', () => setZoom(parseFloat(zoomSlider.value)));
+document.getElementById('zoom-reset-btn').addEventListener('click', resetView);
+
+// Fit the image to the window: fill one dimension keeping aspect ratio (overflow cropped).
+function fitView(dim) {
+  const vw = video.videoWidth, vh = video.videoHeight;
+  if (!vw || !vh) { showToast(T.no_video); return; }
+  const pane = document.getElementById('pane-a');
+  const cw = pane.clientWidth, ch = pane.clientHeight;
+  if (!cw || !ch) return;
+  const sContain = Math.min(cw / vw, ch / vh);          // current object-fit:contain scale
+  const mult = dim === 'h' ? (ch / vh) / sContain : (cw / vw) / sContain;
+  zoomLevel = clamp(mult, 1, 16);
+  panX = 0; panY = 0;
+  applyTransform();
+  zoomPopup.classList.remove('open'); startHideTimer();
+}
+document.getElementById('fit-h-btn').addEventListener('click', e => { e.stopPropagation(); fitView('h'); });
+document.getElementById('fit-w-btn').addEventListener('click', e => { e.stopPropagation(); fitView('w'); });
+
+document.addEventListener('click', e => {
+  const t = e.target;
+  const inPanel = t.closest && (t.closest('.popup') || t.closest('#zoom-popup') || t.closest('#mode-panel'));
+  const isCtl = t.closest && (t.closest('.btn') || t.closest('#zoom-label') || t.closest('#controls'));
+  if (!inPanel && !isCtl) closeToolPanels();
+});
+
+// ─── Fullscreen ───────────────────────────────────────────────────────────────
+function toggleFullscreen() {
+  if (!document.fullscreenElement) {
+    document.documentElement.requestFullscreen().catch(() => {});
+    showToast(T.fs_enter);
+  } else { document.exitFullscreen(); showToast(T.fs_exit); }
+}
+document.addEventListener('fullscreenchange', () => {
+  const inFS = !!document.fullscreenElement;
+  document.getElementById('fs-btn').classList.toggle('active', inFS);
+  document.getElementById('fs-icon').innerHTML = inFS
+    ? '<path d="M8 3v3a2 2 0 0 1-2 2H3M21 8h-3a2 2 0 0 1-2-2V3M3 16h3a2 2 0 0 0 2 2v3M16 21v-3a2 2 0 0 1 2-2h3"/>'
+    : '<path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3"/>';
+  resizeCanvases();
+});
+
+// ─── PiP ──────────────────────────────────────────────────────────────────────
+async function startDocPiP() {
+  if (!('documentPictureInPicture' in window)) { await startVideoPiP(); return; }
+  try {
+    if (pipWindow) { pipWindow.close(); pipWindow = null; pipVideoEl = null; pipSwapBtn = null; }
+    pipWindow = await window.documentPictureInPicture.requestWindow({ width: 480, height: 270 });
+    const pd = pipWindow.document;
+    pd.documentElement.style.cssText = 'margin:0;padding:0;overflow:hidden;background:#000;';
+    pd.body.style.cssText = 'margin:0;padding:0;background:#000;overflow:hidden;width:100%;height:100%;';
+    const st = pd.createElement('style');
+    st.textContent = `html,body{margin:0;background:#000}video{width:100%;height:100%;object-fit:contain;display:block}`
+      + `#pip-swap{position:fixed;top:8px;right:8px;width:34px;height:34px;border:none;border-radius:8px;`
+      + `background:rgba(20,20,20,0.55);color:#fff;display:none;align-items:center;justify-content:center;`
+      + `cursor:pointer;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);opacity:.85}`
+      + `#pip-swap:hover{background:rgba(45,45,45,.85);opacity:1}`;
+    pd.head.appendChild(st);
+    const pv = pd.createElement('video');
+    pv.srcObject = streamOf(secondarySrc()) || streamOf(primarySrc);
+    pv.autoplay = true; pv.muted = true; pv.playsInline = true;
+    pv.style.cssText = 'width:100%;height:100%;display:block;';
+    pd.body.appendChild(pv);
+    pipVideoEl = pv;
+    // Icon-only source-swap control inside the PiP window (visible when two sources are live)
+    const sb = pd.createElement('button');
+    sb.id = 'pip-swap';
+    sb.title = T.swap || 'Swap';
+    sb.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>';
+    sb.addEventListener('click', () => swapSources());
+    pd.body.appendChild(sb);
+    pipSwapBtn = sb;
+    sb.style.display = (camStream && screenStream) ? 'flex' : 'none';
+    pipWindow.addEventListener('pagehide', () => { pipWindow = null; pipVideoEl = null; pipSwapBtn = null; setPipActive(false); showToast(T.pip_exit); });
+    setPipActive(true); showToast(T.pip);
+  } catch(e) { await startVideoPiP(); }
+}
+
+async function startVideoPiP() {
+  if (!document.pictureInPictureEnabled) { showToast(T.pip_unsupported); return; }
+  try {
+    if (document.pictureInPictureElement) await document.exitPictureInPicture();
+    await video.requestPictureInPicture();
+    setPipActive(true); showToast(T.pip);
+  } catch(e) { if (e.name !== 'AbortError') showToast(T.pip_unsupported); }
+}
+
+function setPipActive(active) {
+  pipActive = active;
+  document.getElementById('pip-btn').classList.toggle('active', active);
+  if (active && !uiPinned) { cancelHideTimer(); hideUI(); }
+}
+video.addEventListener('leavepictureinpicture', () => { setPipActive(false); showUI(); });
+
+// ─── Laser pointer ────────────────────────────────────────────────────────────
+function laserLoop() {
+  const now = Date.now();
+  laserCtx.clearRect(0, 0, laserCanvas.width, laserCanvas.height);
+  laserPoints = laserPoints.filter(p => now - p.t < trailMs);
+
+  if (laserPoints.length > 1) {
+    for (let i = 1; i < laserPoints.length; i++) {
+      if (laserPoints[i].newStroke) continue; // don't connect from previous stroke
+      const alpha = Math.max(0, 1 - (now - laserPoints[i].t) / trailMs);
+      laserCtx.save();
+      laserCtx.globalAlpha = alpha * 0.9;
+      laserCtx.strokeStyle = laserColor;
+      laserCtx.lineWidth = laserSize;
+      laserCtx.lineCap = 'round';
+      laserCtx.lineJoin = 'round';
+      laserCtx.shadowBlur = laserSize * 2;
+      laserCtx.shadowColor = laserColor;
+      laserCtx.beginPath();
+      laserCtx.moveTo(laserPoints[i - 1].x, laserPoints[i - 1].y);
+      laserCtx.lineTo(laserPoints[i].x, laserPoints[i].y);
+      laserCtx.stroke();
+      laserCtx.restore();
+    }
+  }
+
+  if (laserPoints.length > 0 && isLaserDrawing) {
+    const last = laserPoints[laserPoints.length - 1];
+    if (now - last.t < 100) {
+      laserCtx.save();
+      laserCtx.shadowBlur = laserSize * 6;
+      laserCtx.shadowColor = laserColor;
+      laserCtx.fillStyle = '#fff';
+      laserCtx.beginPath();
+      laserCtx.arc(last.x, last.y, laserSize * 0.65, 0, Math.PI * 2);
+      laserCtx.fill();
+      laserCtx.restore();
+    }
+  }
+
+  // cursor preview dot when not pressing
+  if (!isLaserDrawing && laserX !== null) {
+    const rect = laserCanvas.getBoundingClientRect();
+    const cx = laserX - rect.left, cy = laserY - rect.top;
+    laserCtx.save();
+    laserCtx.shadowBlur = laserSize * 5;
+    laserCtx.shadowColor = laserColor;
+    laserCtx.fillStyle = laserColor;
+    laserCtx.globalAlpha = 0.85;
+    laserCtx.beginPath();
+    laserCtx.arc(cx, cy, laserSize * 0.6, 0, Math.PI * 2);
+    laserCtx.fill();
+    laserCtx.restore();
+  }
+
+  if (laserPoints.length > 0 || isLaserDrawing || laserX !== null) laserRAF = requestAnimationFrame(laserLoop);
+  else laserRAF = null;
+}
+function startLaserLoop() { if (!laserRAF) laserRAF = requestAnimationFrame(laserLoop); }
+function addLaserPoint(cx, cy, newStroke = false) {
+  const rect = laserCanvas.getBoundingClientRect();
+  laserPoints.push({ x: cx - rect.left, y: cy - rect.top, t: Date.now(), newStroke });
+  startLaserLoop();
+}
+
+// ─── Spotlight ────────────────────────────────────────────────────────────────
+function drawSpotlight() {
+  const w = spotCanvas.width, h = spotCanvas.height;
+  spotCtx.clearRect(0, 0, w, h);
+  spotCtx.fillStyle = `rgba(0,0,0,${spotOpacity})`;
+  spotCtx.fillRect(0, 0, w, h);
+  spotCtx.save();
+  spotCtx.globalCompositeOperation = 'destination-out';
+  if (spotFeather > 0 && 'filter' in spotCtx) spotCtx.filter = `blur(${spotFeather}px)`;
+  spotCtx.fillStyle = 'rgba(0,0,0,1)';
+  spotCtx.beginPath();
+  switch(spotShape) {
+    case 'circle':  spotCtx.arc(spotX, spotY, spotW, 0, Math.PI * 2); break;
+    case 'ellipse': spotCtx.ellipse(spotX, spotY, spotW, spotH, 0, 0, Math.PI * 2); break;
+    case 'square':  spotCtx.rect(spotX - spotW, spotY - spotW, spotW * 2, spotW * 2); break;
+    case 'rect':    spotCtx.rect(spotX - spotW, spotY - spotH, spotW * 2, spotH * 2); break;
+  }
+  spotCtx.fill();
+  spotCtx.restore();
+}
+function spotUsesHeight() { return spotShape === 'ellipse' || spotShape === 'rect'; }
+function scaleSpot(f) {
+  spotW = clamp(spotW * f, 30, 1000);
+  spotH = clamp(spotH * f, 30, 1000);
+  if (!spotUsesHeight()) spotH = spotW;
+  syncSpotSizeUI(); drawSpotlight();
+}
+
+// ─── Ruler ────────────────────────────────────────────────────────────────────
+function drawRuler() {
+  rulerCtx.clearRect(0, 0, rulerCanvas.width, rulerCanvas.height);
+  if (activeMode !== 'ruler') return;
+  drawOneRuler(rulerAngle);
+  if (rulerCross) {
+    drawOneRuler(rulerAngle + rulerCrossAngle);
+    drawAngleMark();
+  }
+}
+function drawAngleMark() {
+  rulerCtx.save();
+  rulerCtx.translate(rulerX, rulerY);
+  const ang1 = rulerAngle * Math.PI / 180;
+  const crossRad = rulerCrossAngle * Math.PI / 180;
+  const r = 32;
+  const edgeColor = rulerStyle === 'ticks' ? 'rgba(0,200,255,0.95)' : 'rgba(25,25,25,0.85)';
+  rulerCtx.strokeStyle = edgeColor;
+  rulerCtx.lineWidth = 1.5;
+  rulerCtx.beginPath();
+  rulerCtx.arc(0, 0, r, ang1, ang1 - crossRad, true); // CCW → upper-right (Q1)
+  rulerCtx.stroke();
+  const midAng = ang1 - crossRad / 2;
+  const lr = r + 16;
+  rulerCtx.fillStyle = edgeColor;
+  rulerCtx.font = 'bold 11px -apple-system,sans-serif';
+  rulerCtx.textAlign = 'center';
+  rulerCtx.textBaseline = 'middle';
+  rulerCtx.fillText(Math.abs(rulerCrossAngle) + '°', Math.cos(midAng) * lr, Math.sin(midAng) * lr);
+  rulerCtx.restore();
+}
+function drawOneRuler(angDeg) {
+  const ang = angDeg * Math.PI / 180;
+  const L = Math.hypot(rulerCanvas.width, rulerCanvas.height) + 300;
+  const RW = 32;
+  rulerCtx.save();
+  rulerCtx.translate(rulerX, rulerY);
+  rulerCtx.rotate(ang);
+  if (rulerStyle !== 'ticks') {
+    rulerCtx.fillStyle = rulerStyle === 'solid' ? 'rgba(244,244,240,0.96)' : 'rgba(244,244,240,0.5)';
+    rulerCtx.fillRect(-L, 0, 2 * L, RW);
+    rulerCtx.strokeStyle = 'rgba(0,0,0,0.22)'; rulerCtx.lineWidth = 1;
+    rulerCtx.strokeRect(-L, 0, 2 * L, RW);
+  }
+  const accent = rulerStyle === 'ticks';
+  const edgeColor = accent ? 'rgba(0,200,255,0.95)' : 'rgba(25,25,25,0.85)';
+  rulerCtx.strokeStyle = edgeColor; rulerCtx.lineWidth = 1.5;
+  rulerCtx.beginPath(); rulerCtx.moveTo(-L, 0); rulerCtx.lineTo(L, 0); rulerCtx.stroke();
+  rulerCtx.fillStyle = edgeColor;
+  rulerCtx.font = '10px -apple-system, sans-serif';
+  rulerCtx.textAlign = 'center';
+  const n = Math.floor(L / rulerTick);
+  for (let i = -n; i <= n; i++) {
+    const x = i * rulerTick;
+    const major = i % 5 === 0;
+    const len = major ? (accent ? 16 : 14) : (accent ? 9 : 8);
+    rulerCtx.lineWidth = major ? 1.4 : 1;
+    rulerCtx.strokeStyle = edgeColor;
+    rulerCtx.beginPath(); rulerCtx.moveTo(x, 0); rulerCtx.lineTo(x, len); rulerCtx.stroke();
+    if (major) rulerCtx.fillText(rulerUnit === 'num' ? String(i / 5) : String(Math.abs(i * rulerTick)), x, len + 11);
+  }
+  rulerCtx.fillStyle = accent ? 'rgba(0,200,255,1)' : 'rgba(224,83,83,0.95)';
+  rulerCtx.beginPath(); rulerCtx.arc(0, 0, 3, 0, Math.PI * 2); rulerCtx.fill();
+  rulerCtx.restore();
+}
+
+// ─── Grid ─────────────────────────────────────────────────────────────────────
+function drawGrid() {
+  const w = gridCanvas.width, h = gridCanvas.height;
+  gridCtx.clearRect(0, 0, w, h);
+  if (!gridType) return;
+  gridCtx.lineWidth = 1;
+  const draw = (color) => {
+    gridCtx.strokeStyle = color;
+    gridCtx.beginPath();
+    const line = (x1, y1, x2, y2) => { gridCtx.moveTo(x1, y1); gridCtx.lineTo(x2, y2); };
+    if (gridType === 'h2') { line(0, h/2, w, h/2); }
+    else if (gridType === 'v2') { line(w/2, 0, w/2, h); }
+    else if (gridType === '4') { line(w/2, 0, w/2, h); line(0, h/2, w, h/2); }
+    else if (gridType === '9') { for (let i=1;i<3;i++){ line(w*i/3,0,w*i/3,h); line(0,h*i/3,w,h*i/3); } }
+    else if (gridType === '16') { for (let i=1;i<4;i++){ line(w*i/4,0,w*i/4,h); line(0,h*i/4,w,h*i/4); } }
+    else if (gridType === 'cells') {
+      for (let x=gridCell; x<w; x+=gridCell) line(x,0,x,h);
+      for (let y=gridCell; y<h; y+=gridCell) line(0,y,w,y);
+    }
+    gridCtx.stroke();
+  };
+  gridCtx.save();
+  gridCtx.translate(0.5, 0.5); draw('rgba(0,0,0,0.35)'); gridCtx.restore();
+  draw('rgba(255,255,255,0.55)');
+}
+
+// ─── Mode management ──────────────────────────────────────────────────────────
+function startModePanelTimer() {
+  clearTimeout(modePanelTimer);
+  if (activeMode) modePanelTimer = setTimeout(() => modePanel.classList.remove('open'), 2000);
+}
+function openModePanel() {
+  if (!activeMode) return;
+  closeToolPanels();
+  positionPanel(modePanel);
+  modePanel.classList.add('open');
+  cancelHideTimer();
+  startModePanelTimer();
+}
+function setActiveMode(mode, openPanel = true) {
+  activeMode = mode;
+  modeOverlay.className = mode ? `active ${mode}` : '';
+  document.getElementById('gesture-overlay').style.pointerEvents = mode ? 'none' : '';
+  document.getElementById('laser-btn').classList.toggle('active', mode === 'laser');
+  document.getElementById('hl-btn').classList.toggle('active', mode === 'highlight');
+  document.getElementById('spot-btn').classList.toggle('active', mode === 'spotlight');
+  document.getElementById('ruler-btn').classList.toggle('active', mode === 'ruler');
+  document.getElementById('laser-opts').style.display = mode === 'laser' ? '' : 'none';
+  document.getElementById('hl-opts').style.display = mode === 'highlight' ? '' : 'none';
+  document.getElementById('spot-opts').style.display = mode === 'spotlight' ? '' : 'none';
+  document.getElementById('ruler-opts').style.display = mode === 'ruler' ? '' : 'none';
+
+  if (mode) {
+    closeToolPanels();
+    if (openPanel) openModePanel();
+    const vp = document.getElementById('viewport');
+    resizeCanvases();
+    if (mode === 'spotlight') {
+      if (!spotX && !spotY) { spotX = vp.clientWidth / 2; spotY = vp.clientHeight / 2; }
+      drawSpotlight();
+    } else if (mode === 'ruler') {
+      if (!rulerX && !rulerY) { rulerX = vp.clientWidth / 2; rulerY = vp.clientHeight / 2; }
+      drawRuler();
+    } else if (mode === 'laser') {
+      startLaserLoop();
+    }
+  } else {
+    modePanel.classList.remove('open');
+    clearTimeout(modePanelTimer);
+    laserX = null; laserY = null;
+    laserCtx.clearRect(0, 0, laserCanvas.width, laserCanvas.height);
+    laserPoints = []; isLaserDrawing = false;
+    spotCtx.clearRect(0, 0, spotCanvas.width, spotCanvas.height);
+    rulerCtx.clearRect(0, 0, rulerCanvas.width, rulerCanvas.height);
+    startHideTimer();
+  }
+}
+function toggleLaser(openPanel = true)     { setActiveMode(activeMode === 'laser'     ? null : 'laser',     openPanel); }
+function toggleSpotlight(openPanel = true) { setActiveMode(activeMode === 'spotlight' ? null : 'spotlight', openPanel); }
+function toggleRuler(openPanel = true)     { setActiveMode(activeMode === 'ruler'     ? null : 'ruler',     openPanel); }
+function toggleHighlight(openPanel = true) {
+  if (activeMode === 'highlight') {
+    // turning OFF: clear all highlighter strokes
+    hlVisible = false; hlPaths = []; hlCurrentPath = null; hlDrawing = false;
+    hlCtx.clearRect(0, 0, hlCanvas.width, hlCanvas.height);
+    setActiveMode(null, openPanel);
+  } else {
+    hlVisible = true;
+    setActiveMode('highlight', openPanel);
+  }
+}
+
+// ─── Highlighter drawing ──────────────────────────────────────────────────────
+function redrawHL() {
+  hlCtx.clearRect(0, 0, hlCanvas.width, hlCanvas.height);
+  if (!hlVisible) return;
+  hlCtx.save();
+  hlCtx.lineCap = 'round';
+  hlCtx.lineJoin = 'round';
+  for (const path of hlPaths) {
+    if (path.points.length < 2) continue;
+    hlCtx.globalAlpha = path.opacity;
+    hlCtx.strokeStyle = path.color;
+    hlCtx.lineWidth = path.width;
+    hlCtx.beginPath();
+    hlCtx.moveTo(path.points[0].x, path.points[0].y);
+    for (let i = 1; i < path.points.length; i++) hlCtx.lineTo(path.points[i].x, path.points[i].y);
+    hlCtx.stroke();
+  }
+  hlCtx.restore();
+}
+
+// re-open the mode panel when hovering its button (after 3s auto-collapse)
+['laser-btn','hl-btn','spot-btn','ruler-btn'].forEach(id =>
+  document.getElementById(id).addEventListener('mouseenter', () => { if (activeMode) openModePanel(); })
+);
+
+// ─── Mode overlay events ──────────────────────────────────────────────────────
+function getModePos(clientX, clientY) {
+  const rect = modeOverlay.getBoundingClientRect();
+  return { x: clientX - rect.left, y: clientY - rect.top };
+}
+let rulerDragging = false;
+
+modeOverlay.addEventListener('mousedown', e => {
+  if (activeMode === 'laser') { isLaserDrawing = true; addLaserPoint(e.clientX, e.clientY, true); }
+  else if (activeMode === 'ruler') { rulerDragging = true; lastX = e.clientX; lastY = e.clientY; }
+  else if (activeMode === 'highlight') {
+    hlDrawing = true;
+    const rect = hlCanvas.getBoundingClientRect();
+    hlCurrentPath = { color: hlColor, opacity: hlOpacity, width: hlWidth,
+      points: [{ x: e.clientX - rect.left, y: e.clientY - rect.top }] };
+    hlPaths.push(hlCurrentPath);
+  }
+});
+modeOverlay.addEventListener('mousemove', e => {
+  if (activeMode === 'spotlight') {
+    const p = getModePos(e.clientX, e.clientY); spotX = p.x; spotY = p.y; drawSpotlight(); return;
+  }
+  if (activeMode === 'laser') {
+    laserX = e.clientX; laserY = e.clientY;
+    if (isLaserDrawing) addLaserPoint(e.clientX, e.clientY);
+    startLaserLoop();
+  }
+  if (activeMode === 'ruler' && rulerDragging) {
+    rulerX += e.clientX - lastX; rulerY += e.clientY - lastY;
+    lastX = e.clientX; lastY = e.clientY; drawRuler();
+  }
+  if (activeMode === 'highlight' && hlDrawing && hlCurrentPath) {
+    const rect = hlCanvas.getBoundingClientRect();
+    hlCurrentPath.points.push({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+    redrawHL();
+  }
+});
+modeOverlay.addEventListener('mouseup', () => {
+  isLaserDrawing = false; rulerDragging = false;
+  if (hlDrawing) { hlDrawing = false; hlCurrentPath = null; }
+});
+modeOverlay.addEventListener('mouseleave', () => {
+  isLaserDrawing = false; rulerDragging = false;
+  if (hlDrawing) { hlDrawing = false; hlCurrentPath = null; }
+  if (activeMode === 'laser') { laserX = null; laserY = null; }
+});
+
+modeOverlay.addEventListener('touchstart', e => {
+  e.preventDefault();
+  const t0 = e.touches[0];
+  if (activeMode === 'laser') {
+    isLaserDrawing = true; addLaserPoint(t0.clientX, t0.clientY, true);
+  } else if (activeMode === 'spotlight') {
+    const p = getModePos(t0.clientX, t0.clientY); spotX = p.x; spotY = p.y; drawSpotlight();
+    if (e.touches.length === 2)
+      pinchDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+  } else if (activeMode === 'ruler') {
+    rulerDragging = true; lastX = t0.clientX; lastY = t0.clientY;
+  } else if (activeMode === 'highlight') {
+    hlDrawing = true;
+    const rect = hlCanvas.getBoundingClientRect();
+    hlCurrentPath = { color: hlColor, opacity: hlOpacity, width: hlWidth,
+      points: [{ x: t0.clientX - rect.left, y: t0.clientY - rect.top }] };
+    hlPaths.push(hlCurrentPath);
+  }
+}, { passive: false });
+
+modeOverlay.addEventListener('touchmove', e => {
+  e.preventDefault();
+  if (activeMode === 'laser' && isLaserDrawing && e.touches.length === 1) {
+    addLaserPoint(e.touches[0].clientX, e.touches[0].clientY);
+  } else if (activeMode === 'spotlight') {
+    if (e.touches.length === 1) {
+      const p = getModePos(e.touches[0].clientX, e.touches[0].clientY); spotX = p.x; spotY = p.y;
+    } else if (e.touches.length === 2) {
+      const d = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+      scaleSpot(d / pinchDist); pinchDist = d;
+    }
+    drawSpotlight();
+  } else if (activeMode === 'ruler' && rulerDragging && e.touches.length === 1) {
+    rulerX += e.touches[0].clientX - lastX; rulerY += e.touches[0].clientY - lastY;
+    lastX = e.touches[0].clientX; lastY = e.touches[0].clientY; drawRuler();
+  } else if (activeMode === 'highlight' && hlDrawing && hlCurrentPath && e.touches.length === 1) {
+    const rect = hlCanvas.getBoundingClientRect();
+    hlCurrentPath.points.push({ x: e.touches[0].clientX - rect.left, y: e.touches[0].clientY - rect.top });
+    redrawHL();
+  }
+}, { passive: false });
+modeOverlay.addEventListener('touchend', () => {
+  isLaserDrawing = false; rulerDragging = false;
+  if (hlDrawing) { hlDrawing = false; hlCurrentPath = null; }
+});
+
+modeOverlay.addEventListener('wheel', e => {
+  e.preventDefault();
+  if (activeMode === 'laser') {
+    laserSize = Math.max(2, Math.min(26, laserSize + (e.deltaY < 0 ? 1 : -1)));
+    syncLaserSizeUI();
+  } else if (activeMode === 'spotlight') {
+    scaleSpot(e.deltaY < 0 ? 1.06 : 0.94);
+  } else if (activeMode === 'ruler') {
+    rulerAngle = clamp(rulerAngle + (e.deltaY < 0 ? -2 : 2), -180, 180);
+    document.getElementById('ruler-angle').value = rulerAngle;
+    document.getElementById('ruler-angle-val').textContent = Math.round(rulerAngle) + '°';
+    drawRuler();
+  }
+}, { passive: false });
+
+// ─── Laser panel UI ───────────────────────────────────────────────────────────
+document.querySelectorAll('#swatch-row .swatch').forEach(sw => {
+  sw.addEventListener('click', e => {
+    e.stopPropagation();
+    laserColor = sw.dataset.color;
+    document.querySelectorAll('#swatch-row .swatch').forEach(s => s.classList.remove('active'));
+    sw.classList.add('active');
+  });
+});
+document.querySelectorAll('#laser-opts .sz-btn').forEach(btn => {
+  btn.addEventListener('click', e => {
+    e.stopPropagation();
+    laserSize = parseInt(btn.dataset.sz);
+    syncLaserSizeUI();
+  });
+});
+function syncLaserSizeUI() {
+  document.querySelectorAll('#laser-opts .sz-btn').forEach(b => b.classList.toggle('active', parseInt(b.dataset.sz) === laserSize));
+}
+
+// ─── Highlighter panel UI ─────────────────────────────────────────────────────
+document.querySelectorAll('#hl-swatch-row .hl-swatch').forEach(sw => {
+  sw.addEventListener('click', e => {
+    e.stopPropagation();
+    hlColor = sw.dataset.color;
+    document.querySelectorAll('#hl-swatch-row .hl-swatch').forEach(s => s.classList.remove('active'));
+    sw.classList.add('active');
+  });
+});
+document.querySelectorAll('#hl-opts .hl-sz-btn').forEach(btn => {
+  btn.addEventListener('click', e => {
+    e.stopPropagation();
+    hlWidth = parseInt(btn.dataset.sz);
+    document.querySelectorAll('#hl-opts .hl-sz-btn').forEach(b => b.classList.toggle('active', parseInt(b.dataset.sz) === hlWidth));
+  });
+});
+const hlOpacitySlider = document.getElementById('hl-opacity-slider');
+const hlOpacityVal    = document.getElementById('hl-opacity-val');
+hlOpacitySlider.addEventListener('input', () => {
+  hlOpacity = parseInt(hlOpacitySlider.value) / 100;
+  hlOpacityVal.textContent = hlOpacitySlider.value + '%';
+});
+
+// ─── Spotlight panel UI ───────────────────────────────────────────────────────
+const spotWSlider = document.getElementById('spot-w-slider');
+const spotHSlider = document.getElementById('spot-h-slider');
+const spotHRow    = document.getElementById('spot-h-row');
+function syncSpotSizeUI() {
+  spotWSlider.value = Math.round(spotW);
+  spotHSlider.value = Math.round(spotH);
+  document.getElementById('spot-w-val').textContent = Math.round(spotW);
+  document.getElementById('spot-h-val').textContent = Math.round(spotH);
+  spotHRow.style.display = spotUsesHeight() ? '' : 'none';
+}
+document.querySelectorAll('.shape-btn').forEach(btn => {
+  btn.addEventListener('click', e => {
+    e.stopPropagation();
+    spotShape = btn.dataset.shape;
+    document.querySelectorAll('.shape-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    if (!spotUsesHeight()) spotH = spotW;
+    syncSpotSizeUI();
+    if (activeMode === 'spotlight') drawSpotlight();
+  });
+});
+spotWSlider.addEventListener('input', e => {
+  spotW = parseInt(e.target.value);
+  if (!spotUsesHeight()) spotH = spotW;
+  document.getElementById('spot-w-val').textContent = spotW;
+  if (activeMode === 'spotlight') drawSpotlight();
+});
+spotHSlider.addEventListener('input', e => {
+  spotH = parseInt(e.target.value);
+  document.getElementById('spot-h-val').textContent = spotH;
+  if (activeMode === 'spotlight') drawSpotlight();
+});
+const spotDarkSlider = document.getElementById('spot-dark-slider');
+const spotSoftSlider = document.getElementById('spot-soft-slider');
+spotDarkSlider.addEventListener('input', e => {
+  spotOpacity = parseInt(e.target.value) / 100;
+  document.getElementById('spot-dark-val').textContent = e.target.value + '%';
+  if (activeMode === 'spotlight') drawSpotlight();
+});
+spotSoftSlider.addEventListener('input', e => {
+  spotFeather = parseInt(e.target.value);
+  document.getElementById('spot-soft-val').textContent = e.target.value;
+  if (activeMode === 'spotlight') drawSpotlight();
+});
+
+// ─── Ruler panel UI ───────────────────────────────────────────────────────────
+document.querySelectorAll('#ruler-styles .seg-btn').forEach(btn => {
+  btn.addEventListener('click', e => {
+    e.stopPropagation();
+    rulerStyle = btn.dataset.rstyle;
+    document.querySelectorAll('#ruler-styles .seg-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    drawRuler();
+  });
+});
+document.getElementById('ruler-tick').addEventListener('input', e => {
+  rulerTick = parseInt(e.target.value);
+  document.getElementById('ruler-tick-val').textContent = e.target.value;
+  drawRuler();
+});
+document.getElementById('ruler-angle').addEventListener('input', e => {
+  rulerAngle = parseInt(e.target.value);
+  document.getElementById('ruler-angle-val').textContent = e.target.value + '°';
+  drawRuler();
+});
+document.getElementById('ruler-cross-btn').addEventListener('click', e => {
+  e.stopPropagation();
+  rulerCross = !rulerCross;
+  document.getElementById('ruler-cross-btn').classList.toggle('active', rulerCross);
+  document.getElementById('ruler-cross-angle-row').style.display = rulerCross ? '' : 'none';
+  drawRuler();
+});
+
+// ─── Grid panel UI ────────────────────────────────────────────────────────────
+document.querySelectorAll('#grid-types .seg-btn').forEach(btn => {
+  btn.addEventListener('click', e => {
+    e.stopPropagation();
+    gridType = btn.dataset.grid;
+    document.querySelectorAll('#grid-types .seg-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('grid-cell-row').style.display = gridType === 'cells' ? '' : 'none';
+    document.getElementById('grid-btn').classList.toggle('active', !!gridType);
+    drawGrid();
+  });
+});
+document.getElementById('grid-cell').addEventListener('input', e => {
+  gridCell = parseInt(e.target.value);
+  document.getElementById('grid-cell-val').textContent = e.target.value;
+  drawGrid();
+});
+document.getElementById('grid-cell-row').style.display = 'none';
+
+// ─── Quality panel UI ─────────────────────────────────────────────────────────
+const qBrightS = document.getElementById('q-bright'), qContrastS = document.getElementById('q-contrast'), qSatS = document.getElementById('q-sat');
+qBrightS.addEventListener('input', e => { qBright = parseInt(e.target.value)/100; document.getElementById('q-bright-val').textContent = e.target.value + '%'; applyFilters(); });
+qContrastS.addEventListener('input', e => { qContrast = parseInt(e.target.value)/100; document.getElementById('q-contrast-val').textContent = e.target.value + '%'; applyFilters(); });
+qSatS.addEventListener('input', e => { qSat = parseInt(e.target.value)/100; document.getElementById('q-sat-val').textContent = e.target.value + '%'; applyFilters(); });
+const qWBS = document.getElementById('q-wb');
+qWBS.addEventListener('input', e => {
+  const t = parseInt(e.target.value) / 100; // -1 (cool) .. +1 (warm)
+  wbR = clamp(1 + 0.45 * t, 0.4, 1.8);
+  wbB = clamp(1 - 0.45 * t, 0.4, 1.8);
+  wbG = 1;
+  document.getElementById('q-wb-val').textContent = e.target.value;
+  setWBMatrix();
+});
+function setWBMatrix() {
+  document.getElementById('wb-matrix').setAttribute('values',
+    `${wbR.toFixed(3)} 0 0 0 0  0 ${wbG.toFixed(3)} 0 0 0  0 0 ${wbB.toFixed(3)} 0 0  0 0 0 1 0`);
+}
+function autoAdjust() {
+  if (!video.srcObject || !video.videoWidth) { showToast(T.no_video); return; }
+  try {
+    const c = document.createElement('canvas'); c.width = 160; c.height = 90;
+    const cx = c.getContext('2d');
+    cx.drawImage(video, 0, 0, 160, 90);
+    const d = cx.getImageData(0, 0, 160, 90).data;
+    const n = 160 * 90;
+    const rs = new Float32Array(n), gs = new Float32Array(n), bs = new Float32Array(n), ls = new Float32Array(n);
+    for (let i = 0, j = 0; i < d.length; i += 4, j++) {
+      rs[j] = d[i]; gs[j] = d[i+1]; bs[j] = d[i+2];
+      ls[j] = 0.299*d[i] + 0.587*d[i+1] + 0.114*d[i+2];
+    }
+    rs.sort(); gs.sort(); bs.sort(); ls.sort();
+    // 5th–95th percentile to reject outliers
+    const lo = Math.floor(n * 0.05), hi = Math.floor(n * 0.95), cnt = hi - lo;
+    let avgR = 0, avgG = 0, avgB = 0, avgL = 0;
+    for (let i = lo; i < hi; i++) { avgR += rs[i]; avgG += gs[i]; avgB += bs[i]; avgL += ls[i]; }
+    avgR /= cnt; avgG /= cnt; avgB /= cnt; avgL /= cnt;
+    // Gray-world white balance
+    const gray = (avgR + avgG + avgB) / 3;
+    wbR = clamp(gray / (avgR || 1), 0.55, 1.8);
+    wbG = clamp(gray / (avgG || 1), 0.55, 1.8);
+    wbB = clamp(gray / (avgB || 1), 0.55, 1.8);
+    setWBMatrix();
+    // Brightness: target mid-tone at 140
+    qBright = clamp(140 / (avgL || 140), 0.6, 1.7);
+    // Contrast: stretch based on luminance range (p5–p95)
+    const lumoRange = ls[hi - 1] - ls[lo];
+    qContrast = clamp(200 / (lumoRange || 200), 0.9, 1.6);
+    // Slight saturation boost for document cameras
+    qSat = 1.05;
+    qBrightS.value = Math.round(qBright*100); document.getElementById('q-bright-val').textContent = Math.round(qBright*100) + '%';
+    qContrastS.value = Math.round(qContrast*100); document.getElementById('q-contrast-val').textContent = Math.round(qContrast*100) + '%';
+    qSatS.value = Math.round(qSat*100); document.getElementById('q-sat-val').textContent = Math.round(qSat*100) + '%';
+    applyFilters();
+    showToast(T.auto + ' ✓');
+  } catch(e) { showToast('Auto failed'); }
+}
+function resetQuality() {
+  qBright = 1; qContrast = 1; qSat = 1; wbR = wbG = wbB = 1; qInvert = false;
+  qBrightS.value = 100; qContrastS.value = 100; qSatS.value = 100; qWBS.value = 0;
+  document.getElementById('q-bright-val').textContent = '100%';
+  document.getElementById('q-contrast-val').textContent = '100%';
+  document.getElementById('q-sat-val').textContent = '100%';
+  document.getElementById('q-wb-val').textContent = '0';
+  document.getElementById('q-invert').classList.remove('active');
+  setWBMatrix(); applyFilters();
+}
+document.getElementById('q-auto').addEventListener('click', e => { e.stopPropagation(); autoAdjust(); });
+document.getElementById('q-invert').addEventListener('click', e => {
+  e.stopPropagation();
+  qInvert = !qInvert;
+  document.getElementById('q-invert').classList.toggle('active', qInvert);
+  applyFilters();
+});
+document.getElementById('q-reset').addEventListener('click', e => { e.stopPropagation(); resetQuality(); });
+
+// Keystone panel zoom slider (linked to main zoom)
+document.getElementById('ks-zoom').addEventListener('input', e => { setZoom(parseFloat(e.target.value)); });
+
+// Laser trail duration
+document.querySelectorAll('#trail-btns .seg-btn').forEach(btn => {
+  btn.addEventListener('click', e => {
+    e.stopPropagation();
+    trailMs = parseInt(btn.dataset.trail);
+    document.querySelectorAll('#trail-btns .seg-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+  });
+});
+
+// Ruler cross angle slider
+document.getElementById('ruler-cross-angle-slider').addEventListener('input', e => {
+  rulerCrossAngle = parseInt(e.target.value);
+  document.getElementById('ruler-cross-angle-val').textContent = rulerCrossAngle + '°';
+  drawRuler();
+});
+
+// Ruler unit selector
+document.querySelectorAll('#ruler-units .seg-btn').forEach(btn => {
+  btn.addEventListener('click', e => {
+    e.stopPropagation();
+    rulerUnit = btn.dataset.runit;
+    document.querySelectorAll('#ruler-units .seg-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('t-r-tick').textContent = rulerUnit === 'num' ? (T.r_tick_width || '目盛幅') : (T.r_tick || 'Scale');
+    drawRuler();
+  });
+});
+
+// ─── Gesture overlay (normal pan/zoom) ───────────────────────────────────────
+const overlay = document.getElementById('gesture-overlay');
+let dragMoved = false, touchMoved = false, lastTap = 0, tapTimer = null;
+// Tapping the main image area (no drag) immediately hides the UI (toggles it).
+function toggleUITap() {
+  if (uiPinned) return;
+  if (uiVisible) { cancelHideTimer(); hideUI(); } else showUI();
+}
+overlay.addEventListener('mousedown', e => {
+  dragMoved = false;
+  if (zoomLevel <= 1) return;
+  isDragging = true; lastX = e.clientX; lastY = e.clientY; overlay.style.cursor = 'grabbing';
+});
+document.addEventListener('mousemove', e => {
+  if (!isDragging) return;
+  dragMoved = true;
+  panX += e.clientX - lastX; panY += e.clientY - lastY;
+  lastX = e.clientX; lastY = e.clientY; applyTransform();
+});
+document.addEventListener('mouseup', () => { isDragging = false; overlay.style.cursor = ''; });
+overlay.addEventListener('click', () => { if (!dragMoved) toggleUITap(); });
+overlay.addEventListener('wheel', e => {
+  e.preventDefault(); setZoom(zoomLevel + (e.deltaY < 0 ? 0.15 : -0.15));
+}, { passive: false });
+overlay.addEventListener('touchstart', e => {
+  touchMoved = false;
+  if (e.touches.length === 1 && zoomLevel > 1) {
+    isDragging = true; lastX = e.touches[0].clientX; lastY = e.touches[0].clientY;
+  } else if (e.touches.length === 2) {
+    isDragging = false;
+    pinchDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+  }
+}, { passive: true });
+overlay.addEventListener('touchmove', e => {
+  e.preventDefault();
+  touchMoved = true;
+  if (e.touches.length === 1 && isDragging) {
+    panX += e.touches[0].clientX - lastX; panY += e.touches[0].clientY - lastY;
+    lastX = e.touches[0].clientX; lastY = e.touches[0].clientY; applyTransform();
+  } else if (e.touches.length === 2) {
+    const d = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+    setZoom(zoomLevel * d / pinchDist); pinchDist = d;
+  }
+}, { passive: false });
+overlay.addEventListener('touchend', () => {
+  isDragging = false;
+  if (touchMoved) { lastTap = 0; return; }
+  const n = Date.now();
+  if (n - lastTap < 280) { clearTimeout(tapTimer); lastTap = 0; resetView(); return; } // double tap = reset
+  lastTap = n;
+  clearTimeout(tapTimer);
+  tapTimer = setTimeout(toggleUITap, 290); // single tap = toggle UI (delayed so double-tap wins)
+});
+
+// ─── Settings ─────────────────────────────────────────────────────────────────
+document.getElementById('settings-btn').addEventListener('click', e => {
+  e.stopPropagation(); settingsOverlay.classList.toggle('open'); cancelHideTimer();
+});
+document.getElementById('settings-close').addEventListener('click', () => {
+  settingsOverlay.classList.remove('open'); startHideTimer();
+});
+settingsOverlay.addEventListener('click', e => {
+  if (e.target === settingsOverlay) { settingsOverlay.classList.remove('open'); startHideTimer(); }
+});
+document.getElementById('lang-select').addEventListener('change', e => {
+  currentLangCode = e.target.value; applyLang();
+  try { localStorage.setItem('doccam-lang', currentLangCode); } catch(err) {}
+});
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    const which = tab.dataset.tab;
+    document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t === tab));
+    document.getElementById('tab-general').style.display = which === 'general' ? '' : 'none';
+    document.getElementById('tab-about').style.display = which === 'about' ? '' : 'none';
+  });
+});
+
+// ─── High contrast mode ───────────────────────────────────────────────────────
+function setHC(on) {
+  document.body.classList.toggle('hc', on);
+  document.getElementById('hc-btn').classList.toggle('active', on);
+  try { localStorage.setItem('doccam-hc', on ? '1' : '0'); } catch(e) {}
+}
+document.getElementById('hc-btn').addEventListener('click', e => {
+  e.stopPropagation(); setHC(!document.body.classList.contains('hc'));
+});
+
+// ─── Event wiring ─────────────────────────────────────────────────────────────
+startBtn.addEventListener('click', async () => {
+  await enumerateCameras();
+  if (cameras.length > 0) await startCamera(cameras[0]?.deviceId); else await startScreen();
+});
+document.getElementById('screen-btn').addEventListener('click', startScreen);
+document.getElementById('freeze-btn').addEventListener('click', toggleFreeze);
+document.getElementById('shot-btn').addEventListener('click', takeShot);
+document.getElementById('mirror-btn').addEventListener('click', toggleMirror);
+document.getElementById('rotate-btn').addEventListener('click', rotateView);
+document.getElementById('keystone-btn').addEventListener('click', e => { e.stopPropagation(); togglePanel(keystonePanel); });
+document.getElementById('grid-btn').addEventListener('click', e => {
+  e.stopPropagation();
+  if (gridType) {
+    gridType = '';
+    document.querySelectorAll('#grid-types .seg-btn').forEach(b => b.classList.toggle('active', b.dataset.grid === ''));
+    document.getElementById('grid-btn').classList.remove('active');
+    gridPanel.classList.remove('open');
+    drawGrid();
+    startHideTimer();
+  } else {
+    togglePanel(gridPanel);
+  }
+});
+document.getElementById('quality-btn').addEventListener('click', e => { e.stopPropagation(); togglePanel(qualityPanel); });
+document.getElementById('pip-btn').addEventListener('click', () => startDocPiP());
+document.getElementById('fs-btn').addEventListener('click', toggleFullscreen);
+document.getElementById('laser-btn').addEventListener('click', e => { e.stopPropagation(); toggleLaser(); });
+document.getElementById('hl-btn').addEventListener('click', e => { e.stopPropagation(); toggleHighlight(); });
+document.getElementById('spot-btn').addEventListener('click', e => { e.stopPropagation(); toggleSpotlight(); });
+document.getElementById('ruler-btn').addEventListener('click', e => { e.stopPropagation(); toggleRuler(); });
+sourceSelect.addEventListener('change', () => startCamera(sourceSelect.value));
+// Camera icon: while live it becomes a stop button; otherwise it starts the camera
+appIcon.addEventListener('click', () => {
+  if (anyStream()) stopAllStreams();
+  else startCamera(sourceSelect.value || (cameras[0] && cameras[0].deviceId));
+});
+
+// ─── Keyboard shortcuts ───────────────────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+  if (!uiPinned && !uiVisible) showUI();
+  switch(e.key.toLowerCase()) {
+    case ' ': case 'k': e.preventDefault(); toggleFreeze(); break;
+    case 'c': takeShot(); break;
+    case 'm': toggleMirror(); break;
+    case 'r': rotateView(); break;
+    case 't': togglePanel(keystonePanel); break;
+    case 'f': toggleFullscreen(); break;
+    case 'p': startDocPiP(); break;
+    case 's': startScreen(); break;
+    case '0': resetView(); break;
+    case '+': case '=': setZoom(zoomLevel + 0.25); break;
+    case '-': setZoom(zoomLevel - 0.25); break;
+    case 'z': togglePanel(zoomPopup); break;
+    case 'l': toggleLaser(false); break;
+    case 'y': toggleHighlight(false); break;
+    case 'h': toggleSpotlight(false); break;
+    case 'u': toggleRuler(false); break;
+    case 'g': togglePanel(gridPanel); break;
+    case 'q': togglePanel(qualityPanel); break;
+    case 'v': togglePanel(layoutPanel); break;
+    case 'x': swapSources(); break;
+    case 'escape':
+      if (activeMode) setActiveMode(null);
+      closeToolPanels();
+      if (settingsOverlay.classList.contains('open')) { settingsOverlay.classList.remove('open'); startHideTimer(); }
+      break;
+  }
+});
+
+// ─── PWA install (Chrome / Edge — beforeinstallprompt) ───────────────────────
+let deferredPrompt = null;
+const installBtn = document.getElementById('install-btn');
+const isStandalone = () =>
+  window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredPrompt = e;
+  if (!isStandalone()) installBtn.style.display = '';   // only when running in a browser tab
+});
+installBtn.addEventListener('click', async () => {
+  if (!deferredPrompt) return;
+  deferredPrompt.prompt();
+  try { await deferredPrompt.userChoice; } catch(e) {}
+  deferredPrompt = null;
+  installBtn.style.display = 'none';
+});
+window.addEventListener('appinstalled', () => { installBtn.style.display = 'none'; deferredPrompt = null; });
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+}
+
+// ─── Slider ±1 step buttons ───────────────────────────────────────────────────
+function wrapSliders() {
+  document.querySelectorAll('.opt-slider, #zoom-slider').forEach(slider => {
+    const step = parseFloat(slider.step) || 1;
+    const decBtn = document.createElement('button');
+    const incBtn = document.createElement('button');
+    decBtn.className = 'step-btn'; incBtn.className = 'step-btn';
+    decBtn.textContent = '◀'; incBtn.textContent = '▶';
+    decBtn.type = 'button'; incBtn.type = 'button';
+    const adjust = delta => {
+      const v = parseFloat(slider.value);
+      const mn = slider.min !== '' ? parseFloat(slider.min) : -Infinity;
+      const mx = slider.max !== '' ? parseFloat(slider.max) : Infinity;
+      slider.value = Math.max(mn, Math.min(mx, v + delta));
+      slider.dispatchEvent(new Event('input', { bubbles: true }));
+    };
+    decBtn.addEventListener('click', e => { e.stopPropagation(); adjust(-step); });
+    incBtn.addEventListener('click', e => { e.stopPropagation(); adjust(step); });
+    slider.parentNode.insertBefore(decBtn, slider);
+    slider.parentNode.insertBefore(incBtn, slider.nextSibling);
+  });
+}
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+showLoading(false);
+nocam.classList.remove('hidden');
+applyLang();
+wrapSliders();
+applyFilters();
+applyLayout();
+try { if (localStorage.getItem('doccam-hc') === '1') setHC(true); } catch(e) {}
+startHideTimer();
+resizeCanvases();
+
+navigator.mediaDevices.enumerateDevices().then(devs => {
+  const cams = devs.filter(d => d.kind === 'videoinput');
+  if (cams.length > 0 && cams[0].label) startCamera(cams[0].deviceId);
+}).catch(() => {});
+</script>
+</body>
+</html>
