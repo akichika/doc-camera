@@ -556,6 +556,7 @@
         </button>
       </div>
       <div class="topbar-row-break"></div>
+      <input type="checkbox" class="cam-check" id="screen-check" style="display:none">
       <button class="btn-top" id="screen-btn">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/>
@@ -1425,7 +1426,7 @@ let activeCam1Id = null;
 let pipVideoEl = null, pipSwapBtn = null, dividerDragging = false;
 let rotation = 0, zoomLevel = 1, panX = 0, panY = 0;
 let pipWindow = null, cameras = [];
-let cam1Visible = true, cam2Visible = true;
+let cam1Visible = true, cam2Visible = true, screenVisible = true;
 let isDragging = false, lastX = 0, lastY = 0, pinchDist = 0;
 let uiPinned = false, uiVisible = true, hideTimer = null;
 const isMobile = () => /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) || navigator.maxTouchPoints > 2;
@@ -1488,6 +1489,7 @@ const nocam         = document.getElementById('nocam');
 const startBtn      = document.getElementById('start-btn');
 const cam1Check     = document.getElementById('cam1-check');
 const cam2Check     = document.getElementById('cam2-check');
+const screenCheck   = document.getElementById('screen-check');
 const sourceSelect  = document.getElementById('source-select');
 const cam2Select    = document.getElementById('cam2-select');
 const freezeOverlay = document.getElementById('freeze-overlay');
@@ -1587,9 +1589,26 @@ pinBtn.addEventListener('click', () => {
 const toolPanels = [zoomPopup, keystonePanel, gridPanel, qualityPanel, layoutPanel];
 function closeToolPanels() { toolPanels.forEach(p => p.classList.remove('open')); }
 // Keep popups clear of the (possibly wrapped) control bar so they never overlap the icons.
+// Layout panel is an exception: show it at the top, just below the topbar.
 function positionPanel(panel) {
-  const h = controlsEl.offsetHeight || 70;
-  panel.style.bottom = (h + 16) + 'px';
+  if (panel === layoutPanel) {
+    const uiRect = uiLayer.getBoundingClientRect();
+    const tbRect = document.getElementById('topbar').getBoundingClientRect();
+    panel.style.top = (tbRect.bottom - uiRect.top + 6) + 'px';
+    panel.style.bottom = 'auto';
+    const btnRect = document.getElementById('layout-btn').getBoundingClientRect();
+    const pw = panel.offsetWidth || 316;
+    let left = btnRect.left - uiRect.left - (pw - btnRect.width) / 2;
+    left = Math.max(8, Math.min(uiRect.width - pw - 8, left));
+    panel.style.left = left + 'px';
+    panel.style.right = 'auto';
+  } else {
+    const h = controlsEl.offsetHeight || 70;
+    panel.style.bottom = (h + 16) + 'px';
+    panel.style.top = 'auto';
+    panel.style.left = '';
+    panel.style.right = '';
+  }
 }
 function togglePanel(panel) {
   const willOpen = !panel.classList.contains('open');
@@ -1604,7 +1623,8 @@ function togglePanel(panel) {
 function streamOf(src) {
   if (src === 'cam') return (cam1Visible ? camStream : null);
   if (src === 'cam2') return (cam2Visible ? cam2Stream : null);
-  return screenStream;
+  if (src === 'screen') return (screenVisible ? screenStream : null);
+  return null;
 }
 function secondarySrc() {
   // cam2 takes priority as secondary when available and not primary
@@ -1639,9 +1659,10 @@ function stopAllStreams() {
   if (activeMode) setActiveMode(null);
   if (layout !== 'single') { layout = 'single'; applyLayout(); }
   primarySrc = 'cam';
-  cam1Visible = true; cam2Visible = true;
+  cam1Visible = true; cam2Visible = true; screenVisible = true;
   cam1Check.checked = false;
   cam2Check.checked = false;
+  screenCheck.checked = false; screenCheck.style.display = 'none';
   document.getElementById('screen-btn').classList.remove('active');
   document.getElementById('layout-btn').style.display = 'none';
   hideTorch(1); hideTorch(2);
@@ -1674,6 +1695,7 @@ function applyCornerPosition() {
     }
   }
   paneB.style.cssText = s;
+  paneB.style.opacity = cornerOpacity; // restore after cssText wipe
 }
 
 function applyLayout() {
@@ -1862,6 +1884,8 @@ function updateLayoutBtnVisibility() {
   document.getElementById('layout-btn').style.display = hasSecond ? '' : 'none';
   cam1Check.checked = !!camStream && cam1Visible;
   cam2Check.checked = !!cam2Stream && cam2Visible;
+  screenCheck.style.display = screenStream ? '' : 'none';
+  screenCheck.checked = !!screenStream && screenVisible;
   document.getElementById('screen-btn').classList.toggle('active', !!screenStream);
 }
 
@@ -1983,8 +2007,9 @@ async function startScreen() {
     if (screenStream) { screenStream.getTracks().forEach(t => t.stop()); screenStream = null; }
     screenStream = await navigator.mediaDevices.getDisplayMedia({ video: { cursor: 'always' }, audio: false });
     showLoading(false);
+    screenVisible = true;
     screenStream.getVideoTracks()[0].addEventListener('ended', () => {
-      screenStream = null;
+      screenStream = null; screenVisible = true;
       if (primarySrc === 'screen') primarySrc = 'cam';
       if (layout !== 'single' && !cam2Stream) { layout = 'single'; applyLayout(); }
       attachStreams();
@@ -3106,6 +3131,12 @@ cam2Check.addEventListener('change', async () => {
 // Cam2 select: switch camera 2 device
 cam2Select.addEventListener('change', async () => {
   if (cam2Stream) await startCam2(cam2Select.value);
+});
+
+// Screen share checkbox: show/hide without stopping the stream
+screenCheck.addEventListener('change', () => {
+  screenVisible = screenCheck.checked;
+  attachStreams(); updateLayoutBtnVisibility();
 });
 
 // Corner position buttons
