@@ -177,7 +177,7 @@
     z-index: 40; box-shadow: 0 8px 32px rgba(0,0,0,0.6);
   }
   #zoom-popup.open, .popup.open { display: flex; }
-  #zoom-slider { width: 100%; accent-color: var(--accent); cursor: pointer; }
+  #zoom-slider { flex: 1; min-width: 0; accent-color: var(--accent); cursor: pointer; }
   #zoom-presets { display: flex; gap: 5px; justify-content: center; }
   #zoom-presets .btn { width: 34px; height: 34px; font-size: 11px; font-weight: 700; border-radius: var(--radius-sm); }
   #zoom-reset-btn, .reset-btn {
@@ -351,6 +351,40 @@
   #start-btn { padding: 11px 30px; border: none; border-radius: var(--radius-sm); background: var(--accent); color: #fff; font-size: 14px; font-weight: 600; cursor: pointer; transition: background var(--tr); }
   #start-btn:hover { background: #3d7de0; }
 
+  /* ── Source chips (cam1/cam2 toggles in topbar) ── */
+  .source-chip {
+    display: flex; align-items: center; gap: 5px;
+    padding: 0 10px; height: 28px; border-radius: 6px;
+    border: 1px solid rgba(255,255,255,0.12);
+    background: rgba(255,255,255,0.07); color: var(--text2);
+    font-size: 11px; font-weight: 600; cursor: pointer; flex-shrink: 0;
+    transition: background var(--tr), color var(--tr), border-color var(--tr);
+  }
+  .source-chip:hover { background: rgba(255,255,255,0.15); color: var(--text); }
+  .source-chip.active { background: rgba(79,142,247,0.2); border-color: rgba(79,142,247,0.5); color: var(--accent); }
+  .chip-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text2); flex-shrink: 0; transition: background var(--tr); }
+  .source-chip.active .chip-dot { background: var(--accent); }
+  body.hc .source-chip { background: rgba(0,0,0,0.9); border-color: #fff; color: #fff; }
+  body.hc .source-chip.active { background: #fff; color: #000; border-color: #fff; }
+
+  /* ── Corner overlay layout ── */
+  #viewport.corner #pane-a { inset: 0; }
+  #viewport.corner #pane-b {
+    position: absolute; width: 28%; height: 22%;
+    bottom: 16px; right: 16px; top: auto; left: auto;
+    border: 2px solid rgba(255,255,255,0.55); border-radius: 6px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.55); z-index: 10;
+  }
+  #viewport.corner #divider { display: none; }
+
+  /* ── Transparent overlay layout ── */
+  #viewport.overlay #pane-a { inset: 0; }
+  #viewport.overlay #pane-b {
+    position: absolute; inset: 0; top: 0; left: 0; right: 0; bottom: 0;
+    width: 100%; height: 100%; opacity: 0.45; z-index: 5; pointer-events: none;
+  }
+  #viewport.overlay #divider { display: none; }
+
   /* ── Video wrapper (for SVG filter separation) ── */
   #video-wrapper { position: absolute; inset: 0; overflow: hidden; }
   #video-wrapper > video { width: 100%; height: 100%; object-fit: contain; user-select: none; touch-action: none; }
@@ -363,8 +397,6 @@
   @media (max-width: 520px) {
     #topbar { flex-wrap: wrap; row-gap: 4px; padding: 8px 10px; }
     .topbar-row-break { display: block; }
-    #source-select { max-width: 150px; }
-    #cam2-select { max-width: 120px; }
   }
 
   @media (max-width: 540px) {
@@ -443,15 +475,19 @@
           <rect x="5" y="5" width="14" height="14" rx="2.5"/>
         </svg>
       </div>
-      <select id="source-select"></select>
-      <select id="cam2-select" style="display:none"></select>
+      <button class="source-chip" id="cam1-chip" style="display:none">
+        <span class="chip-dot"></span><span id="cam1-chip-label">Cam 1</span>
+      </button>
+      <button class="source-chip" id="cam2-chip" style="display:none">
+        <span class="chip-dot"></span><span id="cam2-chip-label">Cam 2</span>
+      </button>
       <div class="topbar-row-break"></div>
       <button class="btn-top" id="screen-btn">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/>
         </svg>
       </button>
-      <button class="btn-top" id="layout-btn" data-tip="Layout (V)">
+      <button class="btn-top" id="layout-btn" data-tip="Layout (V)" style="display:none">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
           <rect x="3" y="4" width="18" height="16" rx="2"/><line x1="12" y1="4" x2="12" y2="20"/>
         </svg>
@@ -596,7 +632,9 @@
 
   <!-- Zoom popup -->
   <div id="zoom-popup">
-    <input type="range" id="zoom-slider" min="1" max="8" step="0.1" value="1">
+    <div class="panel-row">
+      <input type="range" id="zoom-slider" min="1" max="8" step="0.1" value="1">
+    </div>
     <div id="zoom-presets">
       <button class="btn" data-zoom="1">1×</button>
       <button class="btn" data-zoom="1.5">1.5×</button>
@@ -725,6 +763,12 @@
       <button class="seg-btn" data-layout="tb" title="top-bottom">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="14" rx="2"/><line x1="3" y1="12" x2="21" y2="12"/></svg>
       </button>
+      <button class="seg-btn" data-layout="corner" title="corner">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="14" rx="2"/><rect x="13.5" y="12.5" width="6" height="5" rx="1" fill="currentColor" opacity="0.75" stroke="none"/></svg>
+      </button>
+      <button class="seg-btn" data-layout="overlay" title="overlay">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="6" width="13" height="11" rx="2"/><rect x="8" y="9" width="13" height="11" rx="2" fill="currentColor" opacity="0.35"/></svg>
+      </button>
     </div>
     <button class="reset-btn" id="swap-btn">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -763,8 +807,8 @@
       <div class="panel-row">
         <span class="panel-label" id="t-trail">Trail</span>
         <div class="seg-row" id="trail-btns">
-          <button class="seg-btn" data-trail="1000">1s</button>
-          <button class="seg-btn active" data-trail="3000">3s</button>
+          <button class="seg-btn active" data-trail="1000">1s</button>
+          <button class="seg-btn" data-trail="3000">3s</button>
           <button class="seg-btn" data-trail="5000">5s</button>
           <button class="seg-btn" data-trail="10000">10s</button>
         </div>
@@ -828,7 +872,7 @@
       </div>
       <div class="panel-row" id="ruler-cross-angle-row" style="display:none">
         <span class="panel-label" id="t-r-cross-angle">交差角</span>
-        <input type="range" class="opt-slider" id="ruler-cross-angle-slider" min="10" max="170" value="90">
+        <input type="range" class="opt-slider" id="ruler-cross-angle-slider" min="1" max="179" value="90">
         <span class="opt-val" id="ruler-cross-angle-val">90°</span>
       </div>
       <div class="panel-row">
@@ -1293,7 +1337,7 @@ let keystoneV = 0, keystoneH = 0, keystoneAngle = 0;
 // Laser state
 let laserColor = '#ff2222', laserSize = 8;
 let laserPoints = [], isLaserDrawing = false, laserRAF = null;
-let trailMs = 3000;
+let trailMs = 1000;
 let laserX = null, laserY = null;
 
 // Highlighter state
@@ -1331,8 +1375,8 @@ const canvas        = document.getElementById('canvas');
 const loading       = document.getElementById('loading');
 const nocam         = document.getElementById('nocam');
 const startBtn      = document.getElementById('start-btn');
-const sourceSelect  = document.getElementById('source-select');
-const cam2Select    = document.getElementById('cam2-select');
+const cam1Chip      = document.getElementById('cam1-chip');
+const cam2Chip      = document.getElementById('cam2-chip');
 const freezeOverlay = document.getElementById('freeze-overlay');
 const flash         = document.getElementById('flash');
 const toast         = document.getElementById('toast');
@@ -1482,6 +1526,10 @@ function stopAllStreams() {
   if (activeMode) setActiveMode(null);
   if (layout !== 'single') { layout = 'single'; applyLayout(); }
   primarySrc = 'cam';
+  cam1Chip.classList.remove('active');
+  cam2Chip.classList.remove('active');
+  document.getElementById('screen-btn').classList.remove('active');
+  document.getElementById('layout-btn').style.display = 'none';
   attachStreams();
   showToast(T.stop || 'Stopped');
   showUI();
@@ -1552,36 +1600,31 @@ async function enumerateCameras() {
   try {
     const devices = await navigator.mediaDevices.enumerateDevices();
     cameras = devices.filter(d => d.kind === 'videoinput');
-    const prev1 = sourceSelect.value;
-    const prev2 = cam2Select.value;
-    sourceSelect.innerHTML = '';
-    cameras.forEach((cam, i) => {
-      const opt = document.createElement('option');
-      opt.value = cam.deviceId;
-      opt.textContent = cam.label || `${T.cam} ${i + 1}`;
-      sourceSelect.appendChild(opt);
-    });
-    if (prev1) sourceSelect.value = prev1;
 
-    // cam2-select: show when 2+ cameras, exclude the currently active primary camera
-    const cam2Candidates = cameras.filter(c => c.deviceId !== activeCam1Id);
-    if (cam2Candidates.length >= 1) {
-      cam2Select.style.display = '';
-      cam2Select.innerHTML = '';
-      const none = document.createElement('option');
-      none.value = ''; none.textContent = '— ' + (T.cam || 'Camera') + ' 2 —';
-      cam2Select.appendChild(none);
-      cam2Candidates.forEach((cam, i) => {
-        const opt = document.createElement('option');
-        opt.value = cam.deviceId;
-        opt.textContent = cam.label || `${T.cam} ${i + 2}`;
-        cam2Select.appendChild(opt);
-      });
-      if (prev2 && cam2Candidates.find(c => c.deviceId === prev2)) cam2Select.value = prev2;
+    if (cameras.length >= 2) {
+      cam1Chip.style.display = '';
+      cam2Chip.style.display = '';
+      // Use short name if available
+      const shortName = (cam, fallback) => {
+        if (!cam.label) return fallback;
+        const s = cam.label.replace(/\s*\(.*?\)\s*/g, '').trim();
+        return s.length > 0 && s.length <= 14 ? s : fallback;
+      };
+      document.getElementById('cam1-chip-label').textContent = shortName(cameras[0], 'Cam 1');
+      document.getElementById('cam2-chip-label').textContent = shortName(cameras[1], 'Cam 2');
     } else {
-      cam2Select.style.display = 'none';
+      cam1Chip.style.display = 'none';
+      cam2Chip.style.display = 'none';
     }
   } catch(e) {}
+}
+
+function updateLayoutBtnVisibility() {
+  const hasSecond = !!(cam2Stream || screenStream);
+  document.getElementById('layout-btn').style.display = hasSecond ? '' : 'none';
+  cam1Chip.classList.toggle('active', !!camStream);
+  cam2Chip.classList.toggle('active', !!cam2Stream);
+  document.getElementById('screen-btn').classList.toggle('active', !!screenStream);
 }
 
 function savePrimCamState() {
@@ -1614,19 +1657,19 @@ async function startCamera(deviceId) {
     showLoading(false);
     await enumerateCameras();
     const newId = deviceId || (camStream.getVideoTracks()[0]?.getSettings().deviceId);
-    if (deviceId) sourceSelect.value = deviceId;
     if (layout === 'single') primarySrc = 'cam';
     loadPrimCamState(newId); // restore state for new camera
     activeCam1Id = newId;
     attachStreams(); applyTransform(); showUI();
+    updateLayoutBtnVisibility();
   } catch(e) { showLoading(false); showToast('Camera error: ' + e.message); }
 }
 
 async function startCam2(deviceId) {
   if (!deviceId) {
-    // deselect cam2
     if (cam2Stream) { cam2Stream.getTracks().forEach(t => t.stop()); cam2Stream = null; cam2DeviceId = null; }
-    attachStreams();
+    if (layout !== 'single') { layout = 'single'; applyLayout(); }
+    attachStreams(); updateLayoutBtnVisibility();
     return;
   }
   showLoading(true);
@@ -1639,11 +1682,10 @@ async function startCam2(deviceId) {
     cam2DeviceId = deviceId;
     showLoading(false);
     if (layout === 'single') {
-      // choose split direction based on screen aspect ratio
       layout = window.innerWidth >= window.innerHeight ? 'lr' : 'tb';
       applyLayout();
     }
-    attachStreams();
+    attachStreams(); updateLayoutBtnVisibility();
   } catch(e) { showLoading(false); showToast('Camera 2 error: ' + e.message); }
 }
 
@@ -1656,11 +1698,19 @@ async function startScreen() {
     screenStream.getVideoTracks()[0].addEventListener('ended', () => {
       screenStream = null;
       if (primarySrc === 'screen') primarySrc = 'cam';
-      if (layout !== 'single') { layout = 'single'; applyLayout(); }
+      if (layout !== 'single' && !cam2Stream) { layout = 'single'; applyLayout(); }
       attachStreams();
+      updateLayoutBtnVisibility();
     });
-    if (layout === 'single') primarySrc = 'screen';
+    // If camera is active keep it as primary; screen becomes secondary
+    if (layout === 'single' && !camStream) primarySrc = 'screen';
+    // Auto-split when cam is also active
+    if (camStream && layout === 'single') {
+      layout = window.innerWidth >= window.innerHeight ? 'lr' : 'tb';
+      applyLayout();
+    }
     attachStreams(); applyTransform(); showUI();
+    updateLayoutBtnVisibility();
   } catch(e) {
     showLoading(false);
     if (e.name !== 'AbortError' && e.name !== 'NotAllowedError') showToast(e.message);
@@ -2517,13 +2567,13 @@ function autoAdjust() {
     wbG = clamp(gray / (avgG || 1), 0.55, 1.8);
     wbB = clamp(gray / (avgB || 1), 0.55, 1.8);
     setWBMatrix();
-    // Brightness: target mid-tone at 140
-    qBright = clamp(140 / (avgL || 140), 0.6, 1.7);
-    // Contrast: stretch based on luminance range (p5–p95)
+    // Brightness: target mid-tone at 165 (brighter for document cameras)
+    qBright = clamp(165 / (avgL || 165), 0.7, 1.9);
+    // Contrast: boost aggressively for text clarity
     const lumoRange = ls[hi - 1] - ls[lo];
-    qContrast = clamp(200 / (lumoRange || 200), 0.9, 1.6);
-    // Slight saturation boost for document cameras
-    qSat = 1.05;
+    qContrast = clamp(155 / (lumoRange || 155), 1.0, 1.9);
+    // Vivid saturation boost for document cameras
+    qSat = 1.2;
     qBrightS.value = Math.round(qBright*100); document.getElementById('q-bright-val').textContent = Math.round(qBright*100) + '%';
     qContrastS.value = Math.round(qContrast*100); document.getElementById('q-contrast-val').textContent = Math.round(qContrast*100) + '%';
     qSatS.value = Math.round(qSat*100); document.getElementById('q-sat-val').textContent = Math.round(qSat*100) + '%';
@@ -2673,7 +2723,22 @@ startBtn.addEventListener('click', async () => {
   await enumerateCameras();
   if (cameras.length > 0) await startCamera(cameras[0]?.deviceId); else await startScreen();
 });
-document.getElementById('screen-btn').addEventListener('click', startScreen);
+document.getElementById('screen-btn').addEventListener('click', async () => {
+  if (screenStream) {
+    screenStream.getTracks().forEach(t => t.stop()); screenStream = null;
+    if (primarySrc === 'screen') primarySrc = 'cam';
+    if (layout !== 'single' && !cam2Stream) { layout = 'single'; applyLayout(); }
+    attachStreams(); updateLayoutBtnVisibility();
+  } else {
+    // Exclusive with cam2
+    if (cam2Stream) {
+      cam2Stream.getTracks().forEach(t => t.stop()); cam2Stream = null; cam2DeviceId = null;
+      if (primarySrc === 'cam2') primarySrc = 'cam';
+      if (layout !== 'single') { layout = 'single'; applyLayout(); }
+    }
+    await startScreen();
+  }
+});
 document.getElementById('freeze-btn').addEventListener('click', toggleFreeze);
 document.getElementById('shot-btn').addEventListener('click', takeShot);
 document.getElementById('mirror-btn').addEventListener('click', toggleMirror);
@@ -2706,13 +2771,44 @@ document.getElementById('laser-btn').addEventListener('click', e => { e.stopProp
 document.getElementById('hl-btn').addEventListener('click', e => { e.stopPropagation(); toggleHighlight(); });
 document.getElementById('spot-btn').addEventListener('click', e => { e.stopPropagation(); toggleSpotlight(); });
 document.getElementById('ruler-btn').addEventListener('click', e => { e.stopPropagation(); toggleRuler(); });
-sourceSelect.addEventListener('change', () => startCamera(sourceSelect.value));
-cam2Select.addEventListener('change', () => startCam2(cam2Select.value));
 // Camera icon: while live it becomes a stop button; otherwise it starts the camera
 appIcon.addEventListener('click', () => {
   if (anyStream()) stopAllStreams();
-  else startCamera(sourceSelect.value || (cameras[0] && cameras[0].deviceId));
+  else startCamera(cameras[0]?.deviceId);
 });
+
+// Cam1 chip: toggle camera 1
+cam1Chip.addEventListener('click', async () => {
+  if (camStream) {
+    camStream.getTracks().forEach(t => t.stop()); camStream = null;
+    if (primarySrc === 'cam') primarySrc = cam2Stream ? 'cam2' : (screenStream ? 'screen' : 'cam');
+    if (layout !== 'single' && !cam2Stream && !screenStream) { layout = 'single'; applyLayout(); }
+    attachStreams(); updateLayoutBtnVisibility();
+  } else {
+    const cam = cameras.find(c => c.deviceId !== cam2DeviceId) || cameras[0];
+    if (cam) await startCamera(cam.deviceId); else showToast(T.no_video);
+  }
+});
+
+// Cam2 chip: toggle camera 2 (exclusive with screen share)
+cam2Chip.addEventListener('click', async () => {
+  if (cam2Stream) {
+    await startCam2(null);
+  } else {
+    if (screenStream) {
+      screenStream.getTracks().forEach(t => t.stop()); screenStream = null;
+      if (primarySrc === 'screen') primarySrc = 'cam';
+      document.getElementById('screen-btn').classList.remove('active');
+    }
+    const cam2 = cameras.find(c => c.deviceId !== activeCam1Id) || cameras[1];
+    if (cam2) await startCam2(cam2.deviceId); else showToast(T.no_video);
+  }
+});
+
+// Re-enumerate when cameras change (USB plug/unplug)
+if (navigator.mediaDevices?.addEventListener) {
+  navigator.mediaDevices.addEventListener('devicechange', () => enumerateCameras());
+}
 
 // ─── Keyboard shortcuts ───────────────────────────────────────────────────────
 document.addEventListener('keydown', e => {
@@ -2794,7 +2890,7 @@ function applyLoadedSettings(s) {
   rotation = s.rotation ?? 0; mirrorH = s.mirrorH ?? false;
   keystoneV = s.keystoneV ?? 0; keystoneH = s.keystoneH ?? 0; keystoneAngle = s.keystoneAngle ?? 0;
   gridType = s.gridType ?? ''; gridCell = s.gridCell ?? 64; lastGridType = s.lastGridType ?? '';
-  laserColor = s.laserColor ?? '#ff2222'; laserSize = s.laserSize ?? 8; trailMs = s.trailMs ?? 3000;
+  laserColor = s.laserColor ?? '#ff2222'; laserSize = s.laserSize ?? 8; trailMs = s.trailMs ?? 1000;
   hlColor = s.hlColor ?? '#ffee00'; hlOpacity = s.hlOpacity ?? 0.4; hlWidth = s.hlWidth ?? 16;
   rulerStyle = s.rulerStyle ?? 'solid'; rulerTick = s.rulerTick ?? 20; rulerAngle = s.rulerAngle ?? 0;
   rulerCross = s.rulerCross ?? false; rulerCrossAngle = s.rulerCrossAngle ?? 90; rulerUnit = s.rulerUnit ?? 'px';
