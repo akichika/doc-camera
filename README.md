@@ -15,6 +15,8 @@ DocCam turns any webcam (or a screen share) into a presentation document camera.
 
 Everything happens locally in the browser using the `getUserMedia` / `getDisplayMedia` APIs. No backend, no build step — it's a single static `index.html`.
 
+<img width="2330" height="1450" alt="スクリーンショット 2026-06-16 232019" src="https://github.com/user-attachments/assets/a04bf900-4681-4cf4-8c6f-759bb589fcf9" />
+
 ## Features
 
 - 🎥 **Camera & screen share** — pick any connected camera from a dropdown, or share a screen/window. A checkbox next to each source toggles show/hide instantly without disconnecting the stream.
@@ -138,6 +140,8 @@ DocCam has no server component. Camera and screen frames stay in your browser an
 [**▶ デモを開く**](https://akichika.github.io/doc-cam/)
 
 ズーム・静止・スクリーンショット保存に加え、レーザーポインター／蛍光ペン／スポットライト／ルーラー／グリッド／台形補正／画質調整などをブラウザ内だけで実行します。映像はサーバーに送信されず、すべて手元で処理されます（バックエンド無し・ビルド不要の単一 `index.html`）。
+
+<img width="2330" height="1450" alt="スクリーンショット 2026-06-16 232019" src="https://github.com/user-attachments/assets/a04bf900-4681-4cf4-8c6f-759bb589fcf9" />
 
 ### 主な機能
 
