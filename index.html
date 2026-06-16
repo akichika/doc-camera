@@ -351,8 +351,25 @@
   #start-btn { padding: 11px 30px; border: none; border-radius: var(--radius-sm); background: var(--accent); color: #fff; font-size: 14px; font-weight: 600; cursor: pointer; transition: background var(--tr); }
   #start-btn:hover { background: #3d7de0; }
 
+  /* ── Video wrapper (for SVG filter separation) ── */
+  #video-wrapper { position: absolute; inset: 0; overflow: hidden; }
+  #video-wrapper > video { width: 100%; height: 100%; object-fit: contain; user-select: none; touch-action: none; }
+
+  /* ── Controls grouping (keeps pairs together on wrap) ── */
+  .ctrl-group { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+
+  /* ── Topbar responsive (2-row on narrow) ── */
+  .topbar-row-break { display: none; flex-basis: 100%; }
+  @media (max-width: 520px) {
+    #topbar { flex-wrap: wrap; row-gap: 4px; padding: 8px 10px; }
+    .topbar-row-break { display: block; }
+    #source-select { max-width: 150px; }
+    #cam2-select { max-width: 120px; }
+  }
+
   @media (max-width: 540px) {
     #controls { gap: 5px; padding: 10px 6px 12px; }
+    .ctrl-group { gap: 5px; }
     .btn { width: 38px; height: 38px; }
     .btn.large { width: 48px; height: 48px; }
     #mode-panel, .popup { min-width: calc(100vw - 24px); width: calc(100vw - 24px); bottom: 70px; }
@@ -386,7 +403,7 @@
 
 <div id="app">
   <div id="viewport" class="single">
-    <div id="pane-a" class="pane"><video id="video" playsinline autoplay muted></video></div>
+    <div id="pane-a" class="pane"><div id="video-wrapper"><video id="video" playsinline autoplay muted></video></div></div>
     <div id="pane-b" class="pane"><video id="video-b" playsinline autoplay muted></video></div>
     <div id="divider"></div>
     <canvas id="canvas"></canvas>
@@ -428,11 +445,7 @@
       </div>
       <select id="source-select"></select>
       <select id="cam2-select" style="display:none"></select>
-      <button class="btn-top" id="install-btn" data-tip="Install app" style="display:none">
-        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 3v11"/><path d="M8 11l4 4 4-4"/><path d="M5 18v1a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-1"/>
-        </svg>
-      </button>
+      <div class="topbar-row-break"></div>
       <button class="btn-top" id="screen-btn">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/>
@@ -471,6 +484,11 @@
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <circle cx="12" cy="12" r="3"/>
           <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+      </button>
+      <button class="btn-top" id="install-btn" data-tip="Install app" style="display:none">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 3v11"/><path d="M8 11l4 4 4-4"/><path d="M5 18v1a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-1"/>
         </svg>
       </button>
     </div>
@@ -513,36 +531,38 @@
       <div id="zoom-label" data-tip="Zoom (Z)">1.0×</div>
       <div class="sep"></div>
 
-      <!-- freeze -->
-      <button class="btn" id="freeze-btn" data-tip="Freeze (Space)">
-        <svg id="freeze-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>
-        </svg>
-      </button>
-      <!-- screenshot -->
-      <button class="btn" id="shot-btn" data-tip="Screenshot (C)">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
-          <circle cx="12" cy="13" r="4"/>
-        </svg>
-      </button>
+      <!-- freeze + screenshot (kept together on wrap) -->
+      <div class="ctrl-group">
+        <button class="btn" id="freeze-btn" data-tip="Freeze (Space)">
+          <svg id="freeze-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>
+          </svg>
+        </button>
+        <button class="btn" id="shot-btn" data-tip="Screenshot (C)">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+            <circle cx="12" cy="13" r="4"/>
+          </svg>
+        </button>
+      </div>
 
       <div class="sep"></div>
 
-      <!-- laser -->
-      <button class="btn" id="laser-btn" data-tip="Laser (L)">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-          <line x1="21" y1="3.2" x2="11" y2="13.2" stroke-width="2.3"/>
-          <circle cx="7.6" cy="16.6" r="1.9" fill="currentColor" stroke="none"/>
-          <path d="M7.6 11.9v1.5M7.6 21.3v-1.5M2.9 16.6h1.5M12.3 16.6h-1.5" stroke-width="1.7"/>
-        </svg>
-      </button>
-      <!-- highlighter -->
-      <button class="btn" id="hl-btn" data-tip="Highlighter (Y)">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 20h9"/><path d="M16.5 3.5l4 4L7 21l-4 1 1-4L16.5 3.5z"/>
-        </svg>
-      </button>
+      <!-- laser + highlighter (kept together on wrap) -->
+      <div class="ctrl-group">
+        <button class="btn" id="laser-btn" data-tip="Laser (L)">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <line x1="21" y1="3.2" x2="11" y2="13.2" stroke-width="2.3"/>
+            <circle cx="7.6" cy="16.6" r="1.9" fill="currentColor" stroke="none"/>
+            <path d="M7.6 11.9v1.5M7.6 21.3v-1.5M2.9 16.6h1.5M12.3 16.6h-1.5" stroke-width="1.7"/>
+          </svg>
+        </button>
+        <button class="btn" id="hl-btn" data-tip="Highlighter (Y)">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 20h9"/><path d="M16.5 3.5l4 4L7 21l-4 1 1-4L16.5 3.5z"/>
+          </svg>
+        </button>
+      </div>
       <!-- spotlight -->
       <button class="btn" id="spot-btn" data-tip="Spotlight (H)">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -1262,6 +1282,7 @@ let rotation = 0, zoomLevel = 1, panX = 0, panY = 0;
 let pipWindow = null, cameras = [];
 let isDragging = false, lastX = 0, lastY = 0, pinchDist = 0;
 let uiPinned = false, uiVisible = true, hideTimer = null;
+const isMobile = () => /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) || navigator.maxTouchPoints > 2;
 let pipActive = false;
 let activeMode = null; // null | 'laser' | 'highlight' | 'spotlight' | 'ruler'
 let modePanelTimer = null;
@@ -1365,6 +1386,7 @@ function showUI() {
 }
 function hideUI() {
   if (uiPinned) return;
+  if (settingsOverlay.classList.contains('open')) return; // keep UI while settings is open
   uiVisible = false;
   uiLayer.classList.add('hidden');
   zoomPopup.classList.remove('open');
@@ -1377,18 +1399,18 @@ function hideUI() {
 }
 function startHideTimer() {
   clearTimeout(hideTimer);
-  if (!uiPinned) hideTimer = setTimeout(hideUI, 2000);
+  if (!uiPinned) hideTimer = setTimeout(hideUI, isMobile() ? 4000 : 2000);
 }
 function cancelHideTimer() { clearTimeout(hideTimer); }
 
 document.getElementById('app').addEventListener('mousemove', e => {
   if (uiPinned) return;
   if (!uiVisible) { if (inEdgeZone(e.clientY)) showUI(); }
-  else startHideTimer();
+  else if (!settingsOverlay.classList.contains('open')) startHideTimer();
 });
 document.getElementById('app').addEventListener('touchstart', () => {
   if (uiPinned) return;
-  if (uiVisible) startHideTimer(); // revealing when hidden is handled by the image-area tap
+  if (uiVisible && !settingsOverlay.classList.contains('open')) startHideTimer();
 }, { passive: true });
 uiLayer.addEventListener('mouseenter', cancelHideTimer);
 uiLayer.addEventListener('mouseleave', () => { if (!settingsOverlay.classList.contains('open')) startHideTimer(); });
@@ -1476,7 +1498,9 @@ function applyLayout() {
 async function setLayout(l) {
   if (l !== 'single' && !streamOf(secondarySrc())) {
     // need the second source to show a split — acquire it
-    if (secondarySrc() === 'screen') await startScreen();
+    const sec = secondarySrc();
+    if (sec === 'screen') await startScreen();
+    else if (sec === 'cam2') { showToast(T.no_video); return; } // cam2 must be selected from dropdown
     else await startCamera(cameras[0] && cameras[0].deviceId);
     if (!streamOf(secondarySrc())) { showToast(T.no_video); return; }
   }
@@ -1539,20 +1563,21 @@ async function enumerateCameras() {
     });
     if (prev1) sourceSelect.value = prev1;
 
-    // cam2-select: show when 2+ cameras
-    if (cameras.length >= 2) {
+    // cam2-select: show when 2+ cameras, exclude the currently active primary camera
+    const cam2Candidates = cameras.filter(c => c.deviceId !== activeCam1Id);
+    if (cam2Candidates.length >= 1) {
       cam2Select.style.display = '';
       cam2Select.innerHTML = '';
       const none = document.createElement('option');
       none.value = ''; none.textContent = '— ' + (T.cam || 'Camera') + ' 2 —';
       cam2Select.appendChild(none);
-      cameras.forEach((cam, i) => {
+      cam2Candidates.forEach((cam, i) => {
         const opt = document.createElement('option');
         opt.value = cam.deviceId;
-        opt.textContent = cam.label || `${T.cam} ${i + 1}`;
+        opt.textContent = cam.label || `${T.cam} ${i + 2}`;
         cam2Select.appendChild(opt);
       });
-      if (prev2 && cameras.find(c => c.deviceId === prev2)) cam2Select.value = prev2;
+      if (prev2 && cam2Candidates.find(c => c.deviceId === prev2)) cam2Select.value = prev2;
     } else {
       cam2Select.style.display = 'none';
     }
@@ -1613,7 +1638,11 @@ async function startCam2(deviceId) {
     });
     cam2DeviceId = deviceId;
     showLoading(false);
-    if (layout === 'single') { layout = 'lr'; applyLayout(); } // auto switch to split
+    if (layout === 'single') {
+      // choose split direction based on screen aspect ratio
+      layout = window.innerWidth >= window.innerHeight ? 'lr' : 'tb';
+      applyLayout();
+    }
     attachStreams();
   } catch(e) { showLoading(false); showToast('Camera 2 error: ' + e.message); }
 }
@@ -1666,7 +1695,14 @@ function applyTransform() {
 }
 
 function applyFilters() {
-  video.style.filter = `brightness(${qBright}) contrast(${qContrast}) saturate(${qSat}) ${qInvert ? 'invert(1) ' : ''}url(#wb-filter)`;
+  // Apply basic CSS filters directly on video (universally supported incl. iOS Safari)
+  const basicFilter = `brightness(${qBright}) contrast(${qContrast}) saturate(${qSat})${qInvert ? ' invert(1)' : ''}`;
+  video.style.filter = basicFilter;
+  video.style.webkitFilter = basicFilter;
+  // Apply white-balance SVG filter on wrapper div — combining url() with other filters
+  // on a <video> element breaks on iOS Safari, so keep them separate.
+  const wbEl = document.getElementById('video-wrapper');
+  if (wbEl) wbEl.style.filter = (wbR !== 1 || wbG !== 1 || wbB !== 1) ? 'url(#wb-filter)' : '';
 }
 
 function resetView() {
@@ -1692,23 +1728,69 @@ function toggleFreeze() {
   }
 }
 
-// ─── Screenshot (hides UI) ────────────────────────────────────────────────────
+// ─── Screenshot — captures the displayed view with transforms and overlays ────
 function takeShot() {
   const wasVisible = uiVisible;
   cancelHideTimer();
   uiLayer.classList.add('hidden');
-  laserCanvas.style.display = 'none';
-  spotCanvas.style.display = 'none';
-  rulerCanvas.style.display = 'none';
+  laserCanvas.style.display = 'none'; // hide laser cursor dot
 
-  canvas.width = video.videoWidth || video.clientWidth;
-  canvas.height = video.videoHeight || video.clientHeight;
+  const vpEl = document.getElementById('viewport');
+  const paneEl = document.getElementById('pane-a');
+  const pw = paneEl.clientWidth || vpEl.clientWidth;
+  const ph = paneEl.clientHeight || vpEl.clientHeight;
+
+  // Offset of pane-a within viewport (for overlay cropping in split mode)
+  const vpRect = vpEl.getBoundingClientRect();
+  const paneRect = paneEl.getBoundingClientRect();
+  const ox = Math.round(paneRect.left - vpRect.left);
+  const oy = Math.round(paneRect.top - vpRect.top);
+
+  canvas.width = pw;
+  canvas.height = ph;
   const ctx = canvas.getContext('2d');
+
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0, 0, pw, ph);
+
+  // Video natural size → object-fit: contain dimensions
+  const vw = video.videoWidth || pw;
+  const vh = video.videoHeight || ph;
+  const drawScale = Math.min(pw / vw, ph / vh);
+  const dw = vw * drawScale, dh = vh * drawScale;
+
+  // Draw video with same transforms as CSS (skipping 3D perspective/keystone)
+  ctx.filter = `brightness(${qBright}) contrast(${qContrast}) saturate(${qSat})${qInvert ? ' invert(1)' : ''}`;
   ctx.save();
-  ctx.filter = `brightness(${qBright}) contrast(${qContrast}) saturate(${qSat})`;
-  if (mirrorH) { ctx.translate(canvas.width, 0); ctx.scale(-1, 1); }
-  ctx.drawImage(video, 0, 0);
+  ctx.translate(pw / 2, ph / 2);
+  if (mirrorH) ctx.scale(-1, 1);
+  const totalRot = rotation + keystoneAngle;
+  if (totalRot) ctx.rotate(totalRot * Math.PI / 180);
+  ctx.scale(zoomLevel, zoomLevel);
+  ctx.translate(panX / zoomLevel, panY / zoomLevel);
+  ctx.drawImage(video, -dw / 2, -dh / 2, dw, dh);
   ctx.restore();
+
+  // Apply white-balance matrix on the captured pixels
+  if (wbR !== 1 || wbG !== 1 || wbB !== 1) {
+    try {
+      const id = ctx.getImageData(0, 0, pw, ph);
+      const d = id.data;
+      for (let i = 0; i < d.length; i += 4) {
+        d[i]   = Math.min(255, d[i]   * wbR);
+        d[i+1] = Math.min(255, d[i+1] * wbG);
+        d[i+2] = Math.min(255, d[i+2] * wbB);
+      }
+      ctx.putImageData(id, 0, 0);
+    } catch(e) {}
+  }
+
+  // Composite overlays (crop from viewport coords to pane-a origin)
+  ctx.filter = 'none';
+  if (gridType) ctx.drawImage(gridCanvas, ox, oy, pw, ph, 0, 0, pw, ph);
+  ctx.drawImage(hlCanvas,   ox, oy, pw, ph, 0, 0, pw, ph);
+  ctx.drawImage(spotCanvas, ox, oy, pw, ph, 0, 0, pw, ph);
+  ctx.drawImage(rulerCanvas,ox, oy, pw, ph, 0, 0, pw, ph);
 
   canvas.toBlob(blob => {
     const url = URL.createObjectURL(blob);
@@ -1721,8 +1803,6 @@ function takeShot() {
   setTimeout(() => {
     flash.classList.remove('on');
     laserCanvas.style.display = '';
-    spotCanvas.style.display = '';
-    rulerCanvas.style.display = '';
     if (wasVisible) showUI();
   }, 150);
   showToast(T.shot);
@@ -1968,20 +2048,33 @@ function drawAngleMark() {
   rulerCtx.translate(rulerX, rulerY);
   const ang1 = rulerAngle * Math.PI / 180;
   const crossRad = rulerCrossAngle * Math.PI / 180;
+  if (Math.abs(crossRad) < 0.01) { rulerCtx.restore(); return; }
   const r = 32;
   const edgeColor = rulerStyle === 'ticks' ? 'rgba(0,200,255,0.95)' : 'rgba(25,25,25,0.85)';
+  // Arc goes CCW from main ruler toward the upper-right area.
+  // For positive crossRad (cross ruler CW from main): the upper-right angle = PI - crossRad.
+  // For negative crossRad (cross ruler CCW = already upper side): upper-right angle = |crossRad|.
+  let endAngle, sweepRad;
+  if (crossRad > 0) {
+    endAngle = ang1 + crossRad - Math.PI; // cross ruler's upper direction (opposite)
+    sweepRad = Math.PI - crossRad;
+  } else {
+    endAngle = ang1 + crossRad;           // cross ruler is already on upper side
+    sweepRad = -crossRad;
+  }
+  const midAng = ang1 - sweepRad / 2;
+  const displayAngle = Math.round(sweepRad * 180 / Math.PI);
   rulerCtx.strokeStyle = edgeColor;
   rulerCtx.lineWidth = 1.5;
   rulerCtx.beginPath();
-  rulerCtx.arc(0, 0, r, ang1, ang1 - crossRad, true); // CCW → upper-right (Q1)
+  rulerCtx.arc(0, 0, r, ang1, endAngle, true); // CCW → upper-right
   rulerCtx.stroke();
-  const midAng = ang1 - crossRad / 2;
   const lr = r + 16;
   rulerCtx.fillStyle = edgeColor;
   rulerCtx.font = 'bold 11px -apple-system,sans-serif';
   rulerCtx.textAlign = 'center';
   rulerCtx.textBaseline = 'middle';
-  rulerCtx.fillText(Math.abs(rulerCrossAngle) + '°', Math.cos(midAng) * lr, Math.sin(midAng) * lr);
+  rulerCtx.fillText(displayAngle + '°', Math.cos(midAng) * lr, Math.sin(midAng) * lr);
   rulerCtx.restore();
 }
 function drawOneRuler(angDeg) {
@@ -2642,7 +2735,7 @@ document.addEventListener('keydown', e => {
     case 'y': toggleHighlight(false); break;
     case 'h': toggleSpotlight(false); break;
     case 'u': toggleRuler(false); break;
-    case 'g': togglePanel(gridPanel); break;
+    case 'g': document.getElementById('grid-btn').click(); break;
     case 'q': togglePanel(qualityPanel); break;
     case 'v': togglePanel(layoutPanel); break;
     case 'x': swapSources(); break;
@@ -2797,6 +2890,11 @@ wrapSliders();
 applyFilters();
 applyLayout();
 try { if (localStorage.getItem('doccam-hc') === '1') setHC(true); } catch(e) {}
+// Pin UI by default on mobile/tablet so it doesn't auto-hide
+if (isMobile()) {
+  uiPinned = true;
+  pinBtn.classList.add('pinned');
+}
 startHideTimer();
 resizeCanvases();
 
