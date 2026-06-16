@@ -79,9 +79,9 @@
   #ui-layer.hidden > * { pointer-events: none !important; }
   #ui-layer > * { pointer-events: all; }
 
-  /* ── Pin button (flat, bottom-right) ── */
+  /* ── Pin button (always above controls bar, positioned by JS) ── */
   #pin-btn {
-    position: absolute; bottom: 14px; right: 12px; z-index: 30;
+    position: absolute; right: 12px; z-index: 30;
     width: 34px; height: 34px; border-radius: var(--radius-sm);
     border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.05); color: var(--text2);
     display: flex; align-items: center; justify-content: center;
@@ -139,9 +139,6 @@
   .btn-top:hover { background: rgba(255,255,255,0.16); color: var(--text); }
   .btn-top.active { background: var(--accent); border-color: var(--accent); color: #fff; }
   .btn-top:disabled, .btn:disabled { opacity: 0.32; cursor: not-allowed; pointer-events: none; }
-  #pan-reset-btn { margin-right: 20px; }
-  #bg-btn { margin-left: 20px; }
-
   /* ── Bottom controls ── */
   #controls {
     position: absolute; bottom: 0; left: 0; right: 0;
@@ -1204,6 +1201,7 @@ const LANGS = {
     opacity:'Opacity', position:'Position',
     pan_reset:'Center view (pan reset)',
     cam2_mobile_err:'Front and rear cameras cannot be used simultaneously on this device',
+    dual_cam_unsupported:'This device does not support multiple camera display',
     screen_unavail:'Screen share is not supported in this browser',
     fit_h:'Fit height', fit_w:'Fit width',
     ks_v:'Vertical', ks_h:'Horizontal', ks_angle:'Angle',
@@ -1240,6 +1238,7 @@ const LANGS = {
     opacity:'不透明度', position:'位置',
     pan_reset:'表示位置をリセット',
     cam2_mobile_err:'このデバイスではフロントと背面カメラの同時使用はできません',
+    dual_cam_unsupported:'この端末は複数カメラ表示に対応していません',
     screen_unavail:'このブラウザでは画面共有に対応していません',
     fit_h:'縦フィット', fit_w:'横フィット',
     ks_v:'上下', ks_h:'左右', ks_angle:'角度',
@@ -1270,7 +1269,7 @@ const LANGS = {
     laser:'激光笔', highlight:'荧光笔', spotlight:'聚光灯', ruler:'标尺', grid:'网格', quality:'画质', keystone:'梯形校正',
     color:'颜色', size:'大小', shape:'形状', darkness:'暗度', softness:'柔化',
     width:'宽', height:'高', reset:'重置', auto:'自动', no_video:'无视频', opacity:'不透明度', position:'位置',
-    pan_reset:'重置视图位置', cam2_mobile_err:'此设备不支持同时使用前后摄像头', screen_unavail:'此浏览器不支持屏幕共享',
+    pan_reset:'重置视图位置', cam2_mobile_err:'此设备不支持同时使用前后摄像头', dual_cam_unsupported:'此设备不支持多摄像头显示', screen_unavail:'此浏览器不支持屏幕共享',
     ks_v:'垂直', ks_h:'水平', ks_angle:'角度',
     stop:'停止', hc:'高对比度', install:'安装应用', save:'保存设置', save_ok:'设置已保存', reset_confirm:'重置所有保存的设置？', reset_all:'重置所有设置', layout:'布局', swap:'交换来源',
     fit_h:'适应高度', fit_w:'适应宽度', tagline:'简单的网页实物投影仪',
@@ -1301,7 +1300,7 @@ const LANGS = {
     laser:'레이저 포인터', highlight:'형광펜', spotlight:'스포트라이트', ruler:'자', grid:'격자', quality:'화질', keystone:'키스톤 보정',
     color:'색상', size:'크기', shape:'모양', darkness:'어둡기', softness:'부드럽기',
     width:'너비', height:'높이', reset:'재설정', auto:'자동', no_video:'영상 없음', opacity:'불투명도', position:'위치',
-    pan_reset:'보기 위치 초기화', cam2_mobile_err:'이 기기에서는 전면·후면 카메라를 동시에 사용할 수 없습니다', screen_unavail:'이 브라우저는 화면 공유를 지원하지 않습니다',
+    pan_reset:'보기 위치 초기화', cam2_mobile_err:'이 기기에서는 전면·후면 카메라를 동시에 사용할 수 없습니다', dual_cam_unsupported:'이 기기는 다중 카메라 표시를 지원하지 않습니다', screen_unavail:'이 브라우저는 화면 공유를 지원하지 않습니다',
     ks_v:'상하', ks_h:'좌우', ks_angle:'각도',
     stop:'중지', hc:'고대비', install:'앱 설치', save:'설정 저장', save_ok:'설정이 저장되었습니다', reset_confirm:'저장된 모든 설정을 초기화하시겠습니까?', reset_all:'모든 설정 초기화', layout:'레이아웃', swap:'소스 전환',
     fit_h:'높이 맞춤', fit_w:'너비 맞춤', tagline:'간단한 웹 실물화상기',
@@ -1332,7 +1331,7 @@ const LANGS = {
     laser:'Puntero láser', highlight:'Marcador', spotlight:'Foco', ruler:'Regla', grid:'Cuadrícula', quality:'Imagen', keystone:'Trapezoidal',
     color:'Color', size:'Tamaño', shape:'Forma', darkness:'Oscuridad', softness:'Suavidad',
     width:'Ancho', height:'Alto', reset:'Reset', auto:'Auto', no_video:'Sin vídeo', opacity:'Opacidad', position:'Posición',
-    pan_reset:'Centrar vista', cam2_mobile_err:'No se pueden usar cámaras delantera y trasera simultáneamente', screen_unavail:'Este navegador no admite compartir pantalla',
+    pan_reset:'Centrar vista', cam2_mobile_err:'No se pueden usar cámaras delantera y trasera simultáneamente', dual_cam_unsupported:'Este dispositivo no admite múltiples cámaras', screen_unavail:'Este navegador no admite compartir pantalla',
     ks_v:'Vertical', ks_h:'Horizontal', ks_angle:'Ángulo',
     stop:'Detener', hc:'Alto contraste', install:'Instalar app', save:'Guardar ajustes', save_ok:'Ajustes guardados', reset_confirm:'¿Restablecer todos los ajustes guardados?', reset_all:'Restablecer todo', layout:'Diseño', swap:'Intercambiar',
     fit_h:'Ajustar alto', fit_w:'Ajustar ancho', tagline:'Cámara de documentos web',
@@ -1363,7 +1362,7 @@ const LANGS = {
     laser:'Pointeur laser', highlight:'Surligneur', spotlight:'Projecteur', ruler:'Règle', grid:'Grille', quality:'Image', keystone:'Trapèze',
     color:'Couleur', size:'Taille', shape:'Forme', darkness:'Obscurité', softness:'Douceur',
     width:'Largeur', height:'Hauteur', reset:'Reset', auto:'Auto', no_video:'Pas de vidéo', opacity:'Opacité', position:'Position',
-    pan_reset:'Centrer la vue', cam2_mobile_err:'Impossible d\'utiliser simultanément les caméras avant et arrière', screen_unavail:'Ce navigateur ne prend pas en charge le partage d\'écran',
+    pan_reset:'Centrer la vue', cam2_mobile_err:'Impossible d\'utiliser simultanément les caméras avant et arrière', dual_cam_unsupported:'Cet appareil ne prend pas en charge plusieurs caméras', screen_unavail:'Ce navigateur ne prend pas en charge le partage d\'écran',
     ks_v:'Vertical', ks_h:'Horizontal', ks_angle:'Angle',
     stop:'Arrêter', hc:'Contraste élevé', install:'Installer', save:'Enregistrer', save_ok:'Paramètres sauvegardés', reset_confirm:'Réinitialiser tous les paramètres ?', reset_all:'Tout réinitialiser', layout:'Disposition', swap:'Échanger',
     fit_h:'Ajuster hauteur', fit_w:'Ajuster largeur', tagline:'Caméra de documents web',
@@ -1394,7 +1393,7 @@ const LANGS = {
     laser:'Laserpointer', highlight:'Textmarker', spotlight:'Spotlight', ruler:'Lineal', grid:'Raster', quality:'Bild', keystone:'Trapezkorrektur',
     color:'Farbe', size:'Größe', shape:'Form', darkness:'Dunkelheit', softness:'Weichheit',
     width:'Breite', height:'Höhe', reset:'Reset', auto:'Auto', no_video:'Kein Video', opacity:'Deckkraft', position:'Position',
-    pan_reset:'Ansicht zentrieren', cam2_mobile_err:'Vorder- und Rückkamera können nicht gleichzeitig verwendet werden', screen_unavail:'Bildschirmfreigabe wird in diesem Browser nicht unterstützt',
+    pan_reset:'Ansicht zentrieren', cam2_mobile_err:'Vorder- und Rückkamera können nicht gleichzeitig verwendet werden', dual_cam_unsupported:'Dieses Gerät unterstützt keine mehreren Kameras', screen_unavail:'Bildschirmfreigabe wird in diesem Browser nicht unterstützt',
     ks_v:'Vertikal', ks_h:'Horizontal', ks_angle:'Winkel',
     stop:'Stoppen', hc:'Hoher Kontrast', install:'App installieren', save:'Einstellungen speichern', save_ok:'Einstellungen gespeichert', reset_confirm:'Alle Einstellungen zurücksetzen?', reset_all:'Alles zurücksetzen', layout:'Layout', swap:'Tauschen',
     fit_h:'Höhe anpassen', fit_w:'Breite anpassen', tagline:'Einfache Web-Dokumentenkamera',
@@ -1425,7 +1424,7 @@ const LANGS = {
     laser:'Apontador laser', highlight:'Marcador', spotlight:'Holofote', ruler:'Régua', grid:'Grade', quality:'Imagem', keystone:'Trapézio',
     color:'Cor', size:'Tamanho', shape:'Forma', darkness:'Escuridão', softness:'Suavidade',
     width:'Largura', height:'Altura', reset:'Reset', auto:'Auto', no_video:'Sem vídeo', opacity:'Opacidade', position:'Posição',
-    pan_reset:'Centralizar vista', cam2_mobile_err:'Não é possível usar câmeras frontal e traseira simultaneamente', screen_unavail:'Este navegador não suporta compartilhamento de tela',
+    pan_reset:'Centralizar vista', cam2_mobile_err:'Não é possível usar câmeras frontal e traseira simultaneamente', dual_cam_unsupported:'Este dispositivo não suporta múltiplas câmeras', screen_unavail:'Este navegador não suporta compartilhamento de tela',
     ks_v:'Vertical', ks_h:'Horizontal', ks_angle:'Ângulo',
     stop:'Parar', hc:'Alto contraste', install:'Instalar app', save:'Salvar configurações', save_ok:'Configurações salvas', reset_confirm:'Redefinir todas as configurações?', reset_all:'Redefinir tudo', layout:'Layout', swap:'Trocar',
     fit_h:'Ajustar altura', fit_w:'Ajustar largura', tagline:'Câmera de documentos web',
@@ -1456,7 +1455,7 @@ const LANGS = {
     laser:'مؤشر ليزر', highlight:'قلم تظليل', spotlight:'بقعة ضوء', ruler:'مسطرة', grid:'شبكة', quality:'الصورة', keystone:'تصحيح شبه منحرف',
     color:'اللون', size:'الحجم', shape:'الشكل', darkness:'الظلام', softness:'النعومة',
     width:'العرض', height:'الارتفاع', reset:'إعادة', auto:'تلقائي', no_video:'لا يوجد فيديو', opacity:'الشفافية', position:'الموضع',
-    pan_reset:'توسيط العرض', cam2_mobile_err:'لا يمكن استخدام الكاميرا الأمامية والخلفية معاً على هذا الجهاز', screen_unavail:'مشاركة الشاشة غير مدعومة في هذا المتصفح',
+    pan_reset:'توسيط العرض', cam2_mobile_err:'لا يمكن استخدام الكاميرا الأمامية والخلفية معاً على هذا الجهاز', dual_cam_unsupported:'هذا الجهاز لا يدعم عرض كاميرات متعددة', screen_unavail:'مشاركة الشاشة غير مدعومة في هذا المتصفح',
     ks_v:'رأسي', ks_h:'أفقي', ks_angle:'الزاوية',
     stop:'إيقاف', hc:'تباين عالٍ', install:'تثبيت التطبيق', save:'حفظ الإعدادات', save_ok:'تم حفظ الإعدادات', reset_confirm:'إعادة تعيين جميع الإعدادات المحفوظة؟', reset_all:'إعادة تعيين الكل', layout:'تخطيط', swap:'تبديل المصدر',
     fit_h:'ملاءمة الارتفاع', fit_w:'ملاءمة العرض', tagline:'كاميرا وثائق بسيطة للويب',
@@ -1597,7 +1596,8 @@ let pipWindow = null, cameras = [];
 let cam1Visible = true, cam2Visible = true;
 let bgColor = '#000000', bgImage = null, uiThemeDark = false;
 let isDragging = false, lastX = 0, lastY = 0, pinchDist = 0;
-let uiPinned = false, uiVisible = true, hideTimer = null;
+let uiPinned = false, uiVisible = true, hideTimer = null, lastShowTime = 0;
+let dualCamProbed = false, dualCamSupported = true;
 const isMobile = () => /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) || navigator.maxTouchPoints > 2;
 let pipActive = false;
 let activeMode = null; // null | 'laser' | 'highlight' | 'spotlight' | 'ruler'
@@ -1699,7 +1699,7 @@ function resizeCanvases() {
   if (activeMode === 'ruler') drawRuler();
   redrawHL();
 }
-window.addEventListener('resize', () => { resizeCanvases(); if (layout === 'corner') applyCornerPosition(); });
+window.addEventListener('resize', () => { resizeCanvases(); repositionPinBtn(); if (layout === 'corner') applyCornerPosition(); });
 
 // ─── UI auto-hide ─────────────────────────────────────────────────────────────
 // Edge hot-zones: once hidden, the UI only re-appears when the pointer enters
@@ -1710,12 +1710,16 @@ function inEdgeZone(y) {
 }
 function showUI() {
   uiVisible = true;
+  lastShowTime = Date.now();
   uiLayer.classList.remove('hidden');
   if (!uiPinned && !pipActive) startHideTimer();
 }
 function hideUI() {
   if (uiPinned) return;
-  if (settingsOverlay.classList.contains('open')) return; // keep UI while settings is open
+  if (settingsOverlay.classList.contains('open')) return;
+  const minMs = 2000;
+  const elapsed = Date.now() - lastShowTime;
+  if (elapsed < minMs) { clearTimeout(hideTimer); hideTimer = setTimeout(hideUI, minMs - elapsed); return; }
   uiVisible = false;
   uiLayer.classList.add('hidden');
   zoomPopup.classList.remove('open');
@@ -1731,6 +1735,10 @@ function startHideTimer() {
   if (!uiPinned) hideTimer = setTimeout(hideUI, isMobile() ? 3000 : 2000);
 }
 function cancelHideTimer() { clearTimeout(hideTimer); }
+function repositionPinBtn() {
+  const h = document.getElementById('controls').offsetHeight;
+  pinBtn.style.bottom = (h + 6) + 'px';
+}
 
 document.getElementById('app').addEventListener('mousemove', e => {
   if (uiPinned) return;
@@ -2154,6 +2162,7 @@ function updateLayoutBtnVisibility() {
   cam1Check.checked = !!camStream && cam1Visible;
   cam2Check.checked = !!(sec2) && cam2Visible;
   document.getElementById('screen-btn').classList.toggle('active', !!(screenStream && screenStream.active));
+  repositionPinBtn();
 }
 
 // ─── Torch (flashlight) ──────────────────────────────────────────────────────
@@ -2219,6 +2228,26 @@ function loadPrimCamState(deviceId) {
   setV('ks-zoom', zoomLevel); setV('zoom-slider', zoomLevel);
   applyTransform(); applyFilters();
 }
+function disableCam2UI() {
+  dualCamSupported = false;
+  document.getElementById('cam2-group').style.display = 'none';
+  repositionPinBtn();
+}
+
+async function probeDualCam() {
+  if (dualCamProbed || !isMobile() || cameras.length < 2) return;
+  dualCamProbed = true;
+  const otherId = cameras.find(c => c.deviceId !== activeCam1Id)?.deviceId;
+  if (!otherId) return;
+  try {
+    const test = await navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: otherId } }, audio: false });
+    test.getTracks().forEach(t => t.stop());
+  } catch(e) {
+    disableCam2UI();
+    showToast(T.dual_cam_unsupported || 'Multiple cameras not supported on this device', 5000);
+  }
+}
+
 async function startCamera(deviceId) {
   showLoading(true);
   try {
@@ -2238,6 +2267,7 @@ async function startCamera(deviceId) {
     attachStreams(); applyTransform(); showUI();
     updateLayoutBtnVisibility();
     await checkTorch(camStream, 'torch1-btn');
+    await probeDualCam();
   } catch(e) { showLoading(false); showToast('Camera error: ' + e.message); }
 }
 
@@ -2268,7 +2298,8 @@ async function startCam2(deviceId) {
   } catch(e) {
     showLoading(false);
     if (isMobile() && (e.name === 'NotReadableError' || e.name === 'OverconstrainedError' || e.name === 'NotAllowedError')) {
-      showToast(T.cam2_mobile_err || 'Cannot use front and rear cameras simultaneously');
+      disableCam2UI();
+      showToast(T.dual_cam_unsupported || 'Multiple cameras not supported on this device', 5000);
     } else {
       showToast('Camera 2 error: ' + e.message);
     }
@@ -3692,6 +3723,7 @@ if (isMobile()) {
 }
 startHideTimer();
 resizeCanvases();
+repositionPinBtn();
 
 navigator.mediaDevices.enumerateDevices().then(devs => {
   const cams = devs.filter(d => d.kind === 'videoinput');
