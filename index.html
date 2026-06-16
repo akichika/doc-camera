@@ -92,6 +92,7 @@
   #topbar {
     position: absolute; top: 0; left: 0; right: 0;
     display: flex; align-items: center; gap: 6px; padding: 10px 12px;
+    flex-wrap: wrap; row-gap: 4px;
     background: linear-gradient(to bottom, rgba(0,0,0,0.72) 0%, transparent 100%);
   }
   #app-icon {
@@ -105,7 +106,7 @@
   #app-icon.live:hover .ic-stop { display: block; }
   #app-icon.live:hover { color: var(--danger); }
   #source-select {
-    flex: 1; max-width: 160px;
+    flex: 1; max-width: 160px; min-width: 0;
     background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12);
     color: var(--text); padding: 0 28px 0 10px; height: 36px;
     border-radius: var(--radius-sm); font-size: 13px; cursor: pointer;
@@ -115,7 +116,7 @@
   }
   #source-select option { background: #222; color: #fff; }
   #cam2-select {
-    flex: 1; max-width: 160px;
+    flex: 1; max-width: 160px; min-width: 0;
     background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12);
     color: var(--text2); padding: 6px 28px 6px 10px; border-radius: var(--radius-sm);
     font-size: 12px; cursor: pointer; outline: none; min-width: 0;
@@ -431,7 +432,7 @@
   body.hc .cam-check:checked::after { border-color: #000; }
 
   /* ── Camera group (cam2 + torch) ── */
-  .cam-group { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+  .cam-group { display: flex; align-items: center; gap: 4px; flex-shrink: 1; min-width: 0; }
 
   /* ── Corner position grid ── */
   .corner-pos-grid {
@@ -458,13 +459,19 @@
   /* ── Controls grouping (keeps pairs together on wrap) ── */
   .ctrl-group { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
 
-  /* ── Topbar responsive (2-row on narrow) ── */
+  /* ── Topbar responsive (2-row on narrow screens and PC narrow windows) ── */
   .topbar-row-break { display: none; flex-basis: 100%; }
-  @media (max-width: 520px) {
-    #topbar { flex-wrap: wrap; row-gap: 4px; padding: 8px 10px; }
+  @media (max-width: 640px) {
     .topbar-row-break { display: block; }
+    #topbar { padding: 8px 10px; gap: 5px; }
     #source-select { max-width: 110px; font-size: 12px; }
     #cam2-select { max-width: 90px; font-size: 12px; }
+  }
+  @media (max-width: 400px) {
+    #topbar { gap: 4px; padding: 7px 8px; }
+    #source-select { max-width: 82px; }
+    #cam2-select { max-width: 60px; font-size: 11px; }
+    .cam-label { font-size: 9px; }
   }
 
   @media (max-width: 540px) {
@@ -1692,7 +1699,7 @@ function hideUI() {
 }
 function startHideTimer() {
   clearTimeout(hideTimer);
-  if (!uiPinned) hideTimer = setTimeout(hideUI, isMobile() ? 4000 : 2000);
+  if (!uiPinned) hideTimer = setTimeout(hideUI, isMobile() ? 3000 : 2000);
 }
 function cancelHideTimer() { clearTimeout(hideTimer); }
 
@@ -1728,20 +1735,31 @@ function positionPanel(panel) {
   if (panel === layoutPanel) {
     const uiRect = uiLayer.getBoundingClientRect();
     const tbRect = document.getElementById('topbar').getBoundingClientRect();
-    panel.style.top = (tbRect.bottom - uiRect.top + 6) + 'px';
     panel.style.bottom = 'auto';
-    const btnRect = document.getElementById('layout-btn').getBoundingClientRect();
-    const pw = panel.offsetWidth || 316;
-    let left = btnRect.left - uiRect.left - (pw - btnRect.width) / 2;
-    left = Math.max(8, Math.min(uiRect.width - pw - 8, left));
-    panel.style.left = left + 'px';
-    panel.style.right = 'auto';
+    panel.style.top = (tbRect.bottom - uiRect.top + 6) + 'px';
+    panel.style.transform = 'none'; // suppress CSS translateX(-50%) so JS left is exact
+    if (uiRect.width <= 540) {
+      // Mobile: pin to both sides, avoid width measurement issues
+      panel.style.left = '12px';
+      panel.style.right = '12px';
+      panel.style.width = 'auto';
+    } else {
+      panel.style.right = 'auto';
+      panel.style.width = '';
+      const btnRect = document.getElementById('layout-btn').getBoundingClientRect();
+      const pw = panel.offsetWidth || 316;
+      let left = btnRect.left - uiRect.left - (pw - btnRect.width) / 2;
+      left = Math.max(8, Math.min(uiRect.width - pw - 8, left));
+      panel.style.left = left + 'px';
+    }
   } else {
+    panel.style.transform = '';
+    panel.style.width = '';
+    panel.style.left = '';
+    panel.style.right = '';
     const h = controlsEl.offsetHeight || 70;
     panel.style.bottom = (h + 16) + 'px';
     panel.style.top = 'auto';
-    panel.style.left = '';
-    panel.style.right = '';
   }
 }
 function togglePanel(panel) {
