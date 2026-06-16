@@ -1,3 +1,4 @@
+<img width="2332" height="1460" alt="スクリーンショット 2026-06-16 232111" src="https://github.com/user-attachments/assets/c5a9c31d-102a-43f6-9237-1f0905d56872" />
 <div align="center">
   <img src="icon.svg" width="96" alt="DocCam icon">
 
@@ -15,7 +16,7 @@ DocCam turns any webcam (or a screen share) into a presentation document camera.
 
 Everything happens locally in the browser using the `getUserMedia` / `getDisplayMedia` APIs. No backend, no build step — it's a single static `index.html`.
 
-<img width="2330" height="1450" alt="スクリーンショット 2026-06-16 232019" src="https://github.com/user-attachments/assets/a04bf900-4681-4cf4-8c6f-759bb589fcf9" />
+<img width="2332" height="1460" alt="スクリーンショット 2026-06-16 232111" src="https://github.com/user-attachments/assets/79f543e4-9f28-433d-b1bf-052906219b6b" />
 
 ## Features
 
@@ -40,6 +41,8 @@ Everything happens locally in the browser using the `getUserMedia` / `getDisplay
 - 🌐 **9 languages** (EN / 日本語 / 中文 / 한국어 / ES / FR / DE / PT / AR), auto-detected from the browser.
 - 📲 **Installable PWA** — install from Chrome or Edge on desktop/Android; on iPhone tap **Share → Add to Home Screen** in Safari (iOS 16.4+).
 - ⌨️ **Keyboard shortcuts** and tooltips throughout, with an auto-hiding UI.
+
+<img width="2330" height="1450" alt="スクリーンショット 2026-06-16 232019" src="https://github.com/user-attachments/assets/a04bf900-4681-4cf4-8c6f-759bb589fcf9" />
 
 ## Install as an app (PWA)
 
@@ -141,7 +144,8 @@ DocCam has no server component. Camera and screen frames stay in your browser an
 
 ズーム・静止・スクリーンショット保存に加え、レーザーポインター／蛍光ペン／スポットライト／ルーラー／グリッド／台形補正／画質調整などをブラウザ内だけで実行します。映像はサーバーに送信されず、すべて手元で処理されます（バックエンド無し・ビルド不要の単一 `index.html`）。
 
-<img width="2330" height="1450" alt="スクリーンショット 2026-06-16 232019" src="https://github.com/user-attachments/assets/a04bf900-4681-4cf4-8c6f-759bb589fcf9" />
+
+<img width="2332" height="1460" alt="スクリーンショット 2026-06-16 232111" src="https://github.com/user-attachments/assets/79f543e4-9f28-433d-b1bf-052906219b6b" />
 
 ### 主な機能
 
@@ -165,6 +169,9 @@ DocCam has no server component. Camera and screen frames stay in your browser an
 - 🌗 **ハイコントラストモード**
 - 🌐 **9言語対応**（EN / 日本語 / 中文 / 한국어 / ES / FR / DE / PT / AR）自動判定
 - 📲 **PWA対応** — Chrome・Edgeからインストール可能（iPhoneはSafariで「ホーム画面に追加」）
+
+<img width="2330" height="1450" alt="スクリーンショット 2026-06-16 232019" src="https://github.com/user-attachments/assets/a04bf900-4681-4cf4-8c6f-759bb589fcf9" />
+
 
 ### アプリとしてインストール（PWA）
 
