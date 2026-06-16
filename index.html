@@ -367,6 +367,20 @@
   body.hc .source-chip { background: rgba(0,0,0,0.9); border-color: #fff; color: #fff; }
   body.hc .source-chip.active { background: #fff; color: #000; border-color: #fff; }
 
+  /* ── Torch button ── */
+  .torch-btn {
+    width: 26px; height: 26px; border-radius: 6px; flex-shrink: 0;
+    border: 1px solid rgba(255,255,255,0.12);
+    background: rgba(255,255,255,0.07); color: var(--text2);
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    transition: background var(--tr), color var(--tr), border-color var(--tr);
+    margin-left: -3px; /* tuck closer to its chip */
+  }
+  .torch-btn:hover { background: rgba(255,220,0,0.18); color: #ffd700; border-color: rgba(255,220,0,0.4); }
+  .torch-btn.active { background: rgba(255,220,0,0.3); border-color: rgba(255,220,0,0.7); color: #ffd700; }
+  body.hc .torch-btn { border-color: #fff; color: #fff; }
+  body.hc .torch-btn.active { background: #fff; color: #000; }
+
   /* ── Corner overlay layout ── */
   #viewport.corner #pane-a { inset: 0; }
   #viewport.corner #pane-b {
@@ -478,8 +492,14 @@
       <button class="source-chip" id="cam1-chip" style="display:none">
         <span class="chip-dot"></span><span id="cam1-chip-label">Cam 1</span>
       </button>
+      <button class="torch-btn" id="torch1-btn" style="display:none" data-tip="Flashlight">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2L3 14h9l-1 8 10-12h-9z"/></svg>
+      </button>
       <button class="source-chip" id="cam2-chip" style="display:none">
         <span class="chip-dot"></span><span id="cam2-chip-label">Cam 2</span>
+      </button>
+      <button class="torch-btn" id="torch2-btn" style="display:none" data-tip="Flashlight">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2L3 14h9l-1 8 10-12h-9z"/></svg>
       </button>
       <div class="topbar-row-break"></div>
       <button class="btn-top" id="screen-btn">
@@ -1361,6 +1381,9 @@ let rulerX = 0, rulerY = 0;
 let qBright = 1, qContrast = 1, qSat = 1, wbR = 1, wbG = 1, wbB = 1;
 let qInvert = false;
 
+// Torch state
+let torch1On = false, torch2On = false;
+
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
 // ─── DOM refs ─────────────────────────────────────────────────────────────────
@@ -1530,6 +1553,7 @@ function stopAllStreams() {
   cam2Chip.classList.remove('active');
   document.getElementById('screen-btn').classList.remove('active');
   document.getElementById('layout-btn').style.display = 'none';
+  hideTorch(1); hideTorch(2);
   attachStreams();
   showToast(T.stop || 'Stopped');
   showUI();
@@ -1627,6 +1651,51 @@ function updateLayoutBtnVisibility() {
   document.getElementById('screen-btn').classList.toggle('active', !!screenStream);
 }
 
+// ─── Torch (flashlight) ──────────────────────────────────────────────────────
+async function checkTorch(stream, btnId) {
+  const btn = document.getElementById(btnId);
+  if (!btn) return;
+  const track = stream?.getVideoTracks?.()[0];
+  if (!track) { btn.style.display = 'none'; return; }
+  try {
+    const caps = track.getCapabilities?.();
+    btn.style.display = caps?.torch ? '' : 'none';
+  } catch(e) { btn.style.display = 'none'; }
+}
+
+async function setTorch(stream, on) {
+  const track = stream?.getVideoTracks?.()[0];
+  if (!track) return false;
+  try {
+    await track.applyConstraints({ advanced: [{ torch: on }] });
+    return true;
+  } catch(e) { return false; }
+}
+
+async function toggleTorch(which) {
+  const stream = which === 1 ? camStream : cam2Stream;
+  const btnId  = which === 1 ? 'torch1-btn' : 'torch2-btn';
+  const btn    = document.getElementById(btnId);
+  const newOn  = which === 1 ? !torch1On : !torch2On;
+  const ok = await setTorch(stream, newOn);
+  if (ok) {
+    if (which === 1) torch1On = newOn; else torch2On = newOn;
+    btn?.classList.toggle('active', newOn);
+  } else {
+    showToast('Torch unavailable');
+  }
+}
+
+function hideTorch(which) {
+  const btnId = which === 1 ? 'torch1-btn' : 'torch2-btn';
+  document.getElementById(btnId).style.display = 'none';
+  if (which === 1) torch1On = false; else torch2On = false;
+  document.getElementById(btnId).classList.remove('active');
+}
+
+document.getElementById('torch1-btn').addEventListener('click', e => { e.stopPropagation(); toggleTorch(1); });
+document.getElementById('torch2-btn').addEventListener('click', e => { e.stopPropagation(); toggleTorch(2); });
+
 function savePrimCamState() {
   if (!activeCam1Id) return;
   perCamState[activeCam1Id] = { zoomLevel, panX, panY, keystoneV, keystoneH, keystoneAngle, rotation, mirrorH };
@@ -1662,12 +1731,14 @@ async function startCamera(deviceId) {
     activeCam1Id = newId;
     attachStreams(); applyTransform(); showUI();
     updateLayoutBtnVisibility();
+    await checkTorch(camStream, 'torch1-btn');
   } catch(e) { showLoading(false); showToast('Camera error: ' + e.message); }
 }
 
 async function startCam2(deviceId) {
   if (!deviceId) {
     if (cam2Stream) { cam2Stream.getTracks().forEach(t => t.stop()); cam2Stream = null; cam2DeviceId = null; }
+    hideTorch(2);
     if (layout !== 'single') { layout = 'single'; applyLayout(); }
     attachStreams(); updateLayoutBtnVisibility();
     return;
@@ -1686,6 +1757,7 @@ async function startCam2(deviceId) {
       applyLayout();
     }
     attachStreams(); updateLayoutBtnVisibility();
+    await checkTorch(cam2Stream, 'torch2-btn');
   } catch(e) { showLoading(false); showToast('Camera 2 error: ' + e.message); }
 }
 
@@ -2781,6 +2853,7 @@ appIcon.addEventListener('click', () => {
 cam1Chip.addEventListener('click', async () => {
   if (camStream) {
     camStream.getTracks().forEach(t => t.stop()); camStream = null;
+    hideTorch(1);
     if (primarySrc === 'cam') primarySrc = cam2Stream ? 'cam2' : (screenStream ? 'screen' : 'cam');
     if (layout !== 'single' && !cam2Stream && !screenStream) { layout = 'single'; applyLayout(); }
     attachStreams(); updateLayoutBtnVisibility();
