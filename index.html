@@ -105,7 +105,7 @@
   #app-icon.live:hover .ic-stop { display: block; }
   #app-icon.live:hover { color: var(--danger); }
   #source-select {
-    flex: 1; max-width: 240px;
+    flex: 1; max-width: 200px;
     background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12);
     color: var(--text); padding: 0 28px 0 10px; height: 36px;
     border-radius: var(--radius-sm); font-size: 13px; cursor: pointer;
@@ -114,6 +114,17 @@
     background-repeat: no-repeat; background-position: right 10px center;
   }
   #source-select option { background: #222; color: #fff; }
+  #cam2-select {
+    flex: 1; max-width: 160px;
+    background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12);
+    color: var(--text2); padding: 6px 28px 6px 10px; border-radius: var(--radius-sm);
+    font-size: 12px; cursor: pointer; outline: none; min-width: 0;
+    appearance: none; -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='7' viewBox='0 0 10 7'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23999' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 8px center;
+  }
+  #cam2-select option { background: #222; color: #fff; }
+  body.hc #cam2-select { background: #000; border-color: #fff; color: #fff; }
   .btn-top {
     width: 36px; height: 36px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.1);
     background: rgba(255,255,255,0.08); color: var(--text2);
@@ -416,6 +427,7 @@
         </svg>
       </div>
       <select id="source-select"></select>
+      <select id="cam2-select" style="display:none"></select>
       <button class="btn-top" id="install-btn" data-tip="Install app" style="display:none">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M12 3v11"/><path d="M8 11l4 4 4-4"/><path d="M5 18v1a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-1"/>
@@ -446,6 +458,13 @@
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <circle cx="12" cy="12" r="9"/>
           <path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor" stroke="none"/>
+        </svg>
+      </button>
+      <button class="btn-top" id="save-btn" data-tip="Save settings">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+          <polyline points="17 21 17 13 7 13 7 21"/>
+          <polyline points="7 3 7 8 15 8"/>
         </svg>
       </button>
       <button class="btn-top" id="settings-btn">
@@ -843,6 +862,11 @@
       </div>
       <div id="tab-general">
         <div class="settings-section">
+          <button id="reset-settings-btn" class="reset-btn" style="width:100%;justify-content:center">
+            <span id="t-reset-settings">Reset all settings</span>
+          </button>
+        </div>
+        <div class="settings-section" style="margin-top:12px">
           <div class="settings-label" id="lang-label">Language</div>
           <select id="lang-select">
             <option value="en">English</option>
@@ -905,7 +929,8 @@ const LANGS = {
     zoom_reset:'Fit / Reset', mirror_on:'Mirror on', mirror_off:'Mirror off',
     rotate:'Rotated', fs_enter:'Fullscreen', fs_exit:'Exit fullscreen',
     settings:'Settings', lang:'Language', shortcuts:'Shortcuts', pin_ui:'Pin UI',
-    stop:'Stop', hc:'High contrast', install:'Install app',
+    stop:'Stop', hc:'High contrast', install:'Install app', save:'Save settings',
+    save_ok:'Settings saved', reset_confirm:'Reset all saved settings?', reset_all:'Reset all settings',
     laser:'Laser Pointer', highlight:'Highlighter', spotlight:'Spotlight', ruler:'Ruler', grid:'Grid', quality:'Image', keystone:'Keystone',
     layout:'Layout', swap:'Swap source',
     color:'Color', size:'Size', shape:'Shape', darkness:'Darkness', softness:'Softness',
@@ -933,7 +958,8 @@ const LANGS = {
     zoom_reset:'フィット / リセット', mirror_on:'左右反転ON', mirror_off:'左右反転OFF',
     rotate:'回転', fs_enter:'全画面', fs_exit:'全画面解除',
     settings:'設定', lang:'言語', shortcuts:'ショートカット', pin_ui:'UI固定',
-    stop:'停止', hc:'ハイコントラスト', install:'アプリをインストール',
+    stop:'停止', hc:'ハイコントラスト', install:'アプリをインストール', save:'設定を保存',
+    save_ok:'設定を保存しました', reset_confirm:'すべての保存済み設定をリセットしますか？', reset_all:'すべての設定をリセット',
     laser:'レーザーポインター', highlight:'蛍光ペン', spotlight:'スポットライト', ruler:'ルーラー', grid:'グリッド', quality:'画質調整', keystone:'台形補正',
     layout:'レイアウト', swap:'ソース入替',
     color:'色', size:'サイズ', shape:'形状', darkness:'暗さ', softness:'ぼかし',
@@ -965,7 +991,7 @@ const LANGS = {
     color:'颜色', size:'大小', shape:'形状', darkness:'暗度', softness:'柔化',
     width:'宽', height:'高', reset:'重置', auto:'自动', no_video:'无视频', opacity:'不透明度',
     ks_v:'垂直', ks_h:'水平', ks_angle:'角度',
-    stop:'停止', hc:'高对比度', install:'安装应用', layout:'布局', swap:'交换来源',
+    stop:'停止', hc:'高对比度', install:'安装应用', save:'保存设置', save_ok:'设置已保存', reset_confirm:'重置所有保存的设置？', reset_all:'重置所有设置', layout:'布局', swap:'交换来源',
     fit_h:'适应高度', fit_w:'适应宽度', tagline:'简单的网页实物投影仪',
     g_cell:'格', r_style:'样式', r_tick:'刻度', r_angle:'角度', r_cross:'十字',
     q_bright:'亮度', q_contrast:'对比度', q_sat:'饱和度', q_wb:'白平衡',
@@ -991,7 +1017,7 @@ const LANGS = {
     color:'색상', size:'크기', shape:'모양', darkness:'어둡기', softness:'부드럽기',
     width:'너비', height:'높이', reset:'재설정', auto:'자동', no_video:'영상 없음', opacity:'불투명도',
     ks_v:'상하', ks_h:'좌우', ks_angle:'각도',
-    stop:'중지', hc:'고대비', install:'앱 설치', layout:'레이아웃', swap:'소스 전환',
+    stop:'중지', hc:'고대비', install:'앱 설치', save:'설정 저장', save_ok:'설정이 저장되었습니다', reset_confirm:'저장된 모든 설정을 초기화하시겠습니까?', reset_all:'모든 설정 초기화', layout:'레이아웃', swap:'소스 전환',
     fit_h:'높이 맞춤', fit_w:'너비 맞춤', tagline:'간단한 웹 실물화상기',
     g_cell:'칸', r_style:'표시', r_tick:'눈금', r_angle:'각도', r_cross:'십자',
     q_bright:'밝기', q_contrast:'대비', q_sat:'채도', q_wb:'화이트 밸런스',
@@ -1017,7 +1043,7 @@ const LANGS = {
     color:'Color', size:'Tamaño', shape:'Forma', darkness:'Oscuridad', softness:'Suavidad',
     width:'Ancho', height:'Alto', reset:'Reset', auto:'Auto', no_video:'Sin vídeo', opacity:'Opacidad',
     ks_v:'Vertical', ks_h:'Horizontal', ks_angle:'Ángulo',
-    stop:'Detener', hc:'Alto contraste', install:'Instalar app', layout:'Diseño', swap:'Intercambiar',
+    stop:'Detener', hc:'Alto contraste', install:'Instalar app', save:'Guardar ajustes', save_ok:'Ajustes guardados', reset_confirm:'¿Restablecer todos los ajustes guardados?', reset_all:'Restablecer todo', layout:'Diseño', swap:'Intercambiar',
     fit_h:'Ajustar alto', fit_w:'Ajustar ancho', tagline:'Cámara de documentos web',
     g_cell:'Celda', r_style:'Estilo', r_tick:'Escala', r_angle:'Ángulo', r_cross:'Cruz',
     q_bright:'Brillo', q_contrast:'Contraste', q_sat:'Saturación', q_wb:'Balance de blancos',
@@ -1043,7 +1069,7 @@ const LANGS = {
     color:'Couleur', size:'Taille', shape:'Forme', darkness:'Obscurité', softness:'Douceur',
     width:'Largeur', height:'Hauteur', reset:'Reset', auto:'Auto', no_video:'Pas de vidéo', opacity:'Opacité',
     ks_v:'Vertical', ks_h:'Horizontal', ks_angle:'Angle',
-    stop:'Arrêter', hc:'Contraste élevé', install:'Installer', layout:'Disposition', swap:'Échanger',
+    stop:'Arrêter', hc:'Contraste élevé', install:'Installer', save:'Enregistrer', save_ok:'Paramètres sauvegardés', reset_confirm:'Réinitialiser tous les paramètres ?', reset_all:'Tout réinitialiser', layout:'Disposition', swap:'Échanger',
     fit_h:'Ajuster hauteur', fit_w:'Ajuster largeur', tagline:'Caméra de documents web',
     g_cell:'Case', r_style:'Style', r_tick:'Échelle', r_angle:'Angle', r_cross:'Croix',
     q_bright:'Luminosité', q_contrast:'Contraste', q_sat:'Saturation', q_wb:'Balance blancs',
@@ -1069,7 +1095,7 @@ const LANGS = {
     color:'Farbe', size:'Größe', shape:'Form', darkness:'Dunkelheit', softness:'Weichheit',
     width:'Breite', height:'Höhe', reset:'Reset', auto:'Auto', no_video:'Kein Video', opacity:'Deckkraft',
     ks_v:'Vertikal', ks_h:'Horizontal', ks_angle:'Winkel',
-    stop:'Stoppen', hc:'Hoher Kontrast', install:'App installieren', layout:'Layout', swap:'Tauschen',
+    stop:'Stoppen', hc:'Hoher Kontrast', install:'App installieren', save:'Einstellungen speichern', save_ok:'Einstellungen gespeichert', reset_confirm:'Alle Einstellungen zurücksetzen?', reset_all:'Alles zurücksetzen', layout:'Layout', swap:'Tauschen',
     fit_h:'Höhe anpassen', fit_w:'Breite anpassen', tagline:'Einfache Web-Dokumentenkamera',
     g_cell:'Zelle', r_style:'Stil', r_tick:'Skala', r_angle:'Winkel', r_cross:'Kreuz',
     q_bright:'Helligkeit', q_contrast:'Kontrast', q_sat:'Sättigung', q_wb:'Weißabgleich',
@@ -1095,7 +1121,7 @@ const LANGS = {
     color:'Cor', size:'Tamanho', shape:'Forma', darkness:'Escuridão', softness:'Suavidade',
     width:'Largura', height:'Altura', reset:'Reset', auto:'Auto', no_video:'Sem vídeo', opacity:'Opacidade',
     ks_v:'Vertical', ks_h:'Horizontal', ks_angle:'Ângulo',
-    stop:'Parar', hc:'Alto contraste', install:'Instalar app', layout:'Layout', swap:'Trocar',
+    stop:'Parar', hc:'Alto contraste', install:'Instalar app', save:'Salvar configurações', save_ok:'Configurações salvas', reset_confirm:'Redefinir todas as configurações?', reset_all:'Redefinir tudo', layout:'Layout', swap:'Trocar',
     fit_h:'Ajustar altura', fit_w:'Ajustar largura', tagline:'Câmera de documentos web',
     g_cell:'Célula', r_style:'Estilo', r_tick:'Escala', r_angle:'Ângulo', r_cross:'Cruz',
     q_bright:'Brilho', q_contrast:'Contraste', q_sat:'Saturação', q_wb:'Balanço de branco',
@@ -1121,7 +1147,7 @@ const LANGS = {
     color:'اللون', size:'الحجم', shape:'الشكل', darkness:'الظلام', softness:'النعومة',
     width:'العرض', height:'الارتفاع', reset:'إعادة', auto:'تلقائي', no_video:'لا يوجد فيديو', opacity:'الشفافية',
     ks_v:'رأسي', ks_h:'أفقي', ks_angle:'الزاوية',
-    stop:'إيقاف', hc:'تباين عالٍ', install:'تثبيت التطبيق', layout:'تخطيط', swap:'تبديل المصدر',
+    stop:'إيقاف', hc:'تباين عالٍ', install:'تثبيت التطبيق', save:'حفظ الإعدادات', save_ok:'تم حفظ الإعدادات', reset_confirm:'إعادة تعيين جميع الإعدادات المحفوظة؟', reset_all:'إعادة تعيين الكل', layout:'تخطيط', swap:'تبديل المصدر',
     fit_h:'ملاءمة الارتفاع', fit_w:'ملاءمة العرض', tagline:'كاميرا وثائق بسيطة للويب',
     g_cell:'خلية', r_style:'النمط', r_tick:'التدريج', r_angle:'الزاوية', r_cross:'متقاطع',
     q_bright:'السطوع', q_contrast:'التباين', q_sat:'التشبع', q_wb:'توازن الأبيض',
@@ -1205,6 +1231,8 @@ function applyLang() {
   setTip('layout-btn', (T.layout || 'Layout') + ' (V)');
   setTip('hc-btn', T.hc || 'High contrast');
   setTip('install-btn', T.install || 'Install app');
+  setTip('save-btn', T.save || 'Save settings');
+  setText('t-reset-settings', T.reset_all || 'Reset all settings');
   setText('swap-label', T.swap || 'Swap source');
   if (appIcon) appIcon.dataset.tip = anyStream() ? (T.stop || 'Stop') : (T.cam || 'Camera');
   document.documentElement.dir = (currentLangCode === 'ar') ? 'rtl' : 'ltr';
@@ -1224,8 +1252,11 @@ function buildShortcuts() {
 }
 
 // ─── State ────────────────────────────────────────────────────────────────────
-let camStream = null, screenStream = null, frozen = false, mirrorH = false;
+let camStream = null, screenStream = null, cam2Stream = null, frozen = false, mirrorH = false;
 let layout = 'single', primarySrc = 'cam', splitPos = 50;
+let cam2DeviceId = null;
+const perCamState = {}; // deviceId → { zoomLevel, panX, panY, keystoneV, keystoneH, keystoneAngle, rotation, mirrorH }
+let activeCam1Id = null;
 let pipVideoEl = null, pipSwapBtn = null, dividerDragging = false;
 let rotation = 0, zoomLevel = 1, panX = 0, panY = 0;
 let pipWindow = null, cameras = [];
@@ -1253,7 +1284,7 @@ let spotShape = 'circle', spotOpacity = 0.65, spotFeather = 10;
 let spotX = 0, spotY = 0, spotW = 140, spotH = 90;
 
 // Grid state
-let gridType = '', gridCell = 64;
+let gridType = '', gridCell = 64, lastGridType = '';
 
 // Ruler state
 let rulerStyle = 'solid', rulerTick = 20, rulerAngle = 0, rulerCross = false;
@@ -1280,6 +1311,7 @@ const loading       = document.getElementById('loading');
 const nocam         = document.getElementById('nocam');
 const startBtn      = document.getElementById('start-btn');
 const sourceSelect  = document.getElementById('source-select');
+const cam2Select    = document.getElementById('cam2-select');
 const freezeOverlay = document.getElementById('freeze-overlay');
 const flash         = document.getElementById('flash');
 const toast         = document.getElementById('toast');
@@ -1390,9 +1422,20 @@ function togglePanel(panel) {
 }
 
 // ─── Dual source / layout ─────────────────────────────────────────────────────
-function streamOf(src) { return src === 'cam' ? camStream : screenStream; }
-function secondarySrc() { return primarySrc === 'cam' ? 'screen' : 'cam'; }
-function anyStream() { return camStream || screenStream; }
+function streamOf(src) {
+  if (src === 'cam') return camStream;
+  if (src === 'cam2') return cam2Stream;
+  return screenStream;
+}
+function secondarySrc() {
+  // cam2 takes priority as secondary when available and not primary
+  if (cam2Stream && primarySrc !== 'cam2') return 'cam2';
+  if (primarySrc === 'cam') return screenStream ? 'screen' : 'cam2';
+  if (primarySrc === 'screen') return camStream ? 'cam' : 'cam2';
+  if (primarySrc === 'cam2') return camStream ? 'cam' : 'screen';
+  return 'screen';
+}
+function anyStream() { return camStream || screenStream || cam2Stream; }
 
 function attachStreams() {
   const pri = streamOf(primarySrc);
@@ -1400,6 +1443,7 @@ function attachStreams() {
   if (video.srcObject !== pri) { video.srcObject = pri; if (pri) video.play().catch(() => {}); }
   if (videoB.srcObject !== sec) { videoB.srcObject = sec; if (sec) videoB.play().catch(() => {}); }
   if (pipVideoEl) { const s = sec || pri; if (pipVideoEl.srcObject !== s) pipVideoEl.srcObject = s; }
+  // show swap only when there are 2 streams (not cam2 - that's a different slot)
   if (pipSwapBtn) pipSwapBtn.style.display = (camStream && screenStream) ? 'flex' : 'none';
   nocam.classList.toggle('hidden', !!anyStream());
   if (appIcon) {
@@ -1410,6 +1454,7 @@ function attachStreams() {
 
 function stopAllStreams() {
   if (camStream) { camStream.getTracks().forEach(t => t.stop()); camStream = null; }
+  if (cam2Stream) { cam2Stream.getTracks().forEach(t => t.stop()); cam2Stream = null; cam2DeviceId = null; }
   if (screenStream) { screenStream.getTracks().forEach(t => t.stop()); screenStream = null; }
   if (frozen) toggleFreeze();
   if (activeMode) setActiveMode(null);
@@ -1483,7 +1528,8 @@ async function enumerateCameras() {
   try {
     const devices = await navigator.mediaDevices.enumerateDevices();
     cameras = devices.filter(d => d.kind === 'videoinput');
-    const prev = sourceSelect.value;
+    const prev1 = sourceSelect.value;
+    const prev2 = cam2Select.value;
     sourceSelect.innerHTML = '';
     cameras.forEach((cam, i) => {
       const opt = document.createElement('option');
@@ -1491,13 +1537,50 @@ async function enumerateCameras() {
       opt.textContent = cam.label || `${T.cam} ${i + 1}`;
       sourceSelect.appendChild(opt);
     });
-    if (prev) sourceSelect.value = prev;
+    if (prev1) sourceSelect.value = prev1;
+
+    // cam2-select: show when 2+ cameras
+    if (cameras.length >= 2) {
+      cam2Select.style.display = '';
+      cam2Select.innerHTML = '';
+      const none = document.createElement('option');
+      none.value = ''; none.textContent = '— ' + (T.cam || 'Camera') + ' 2 —';
+      cam2Select.appendChild(none);
+      cameras.forEach((cam, i) => {
+        const opt = document.createElement('option');
+        opt.value = cam.deviceId;
+        opt.textContent = cam.label || `${T.cam} ${i + 1}`;
+        cam2Select.appendChild(opt);
+      });
+      if (prev2 && cameras.find(c => c.deviceId === prev2)) cam2Select.value = prev2;
+    } else {
+      cam2Select.style.display = 'none';
+    }
   } catch(e) {}
 }
 
+function savePrimCamState() {
+  if (!activeCam1Id) return;
+  perCamState[activeCam1Id] = { zoomLevel, panX, panY, keystoneV, keystoneH, keystoneAngle, rotation, mirrorH };
+}
+function loadPrimCamState(deviceId) {
+  const s = perCamState[deviceId];
+  if (!s) return;
+  zoomLevel = s.zoomLevel; panX = s.panX; panY = s.panY;
+  keystoneV = s.keystoneV; keystoneH = s.keystoneH; keystoneAngle = s.keystoneAngle;
+  rotation = s.rotation; mirrorH = s.mirrorH;
+  // Sync sliders
+  const setV = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+  setV('ks-v', keystoneV); document.getElementById('ks-v-val').textContent = keystoneV + '°';
+  setV('ks-h', keystoneH); document.getElementById('ks-h-val').textContent = keystoneH + '°';
+  setV('ks-angle', keystoneAngle); document.getElementById('ks-angle-val').textContent = keystoneAngle + '°';
+  setV('ks-zoom', zoomLevel); setV('zoom-slider', zoomLevel);
+  applyTransform(); applyFilters();
+}
 async function startCamera(deviceId) {
   showLoading(true);
   try {
+    savePrimCamState(); // save state for old camera
     if (camStream) { camStream.getTracks().forEach(t => t.stop()); camStream = null; }
     camStream = await navigator.mediaDevices.getUserMedia({
       video: { deviceId: deviceId ? { exact: deviceId } : undefined, width: { ideal: 3840 }, height: { ideal: 2160 } },
@@ -1505,10 +1588,34 @@ async function startCamera(deviceId) {
     });
     showLoading(false);
     await enumerateCameras();
+    const newId = deviceId || (camStream.getVideoTracks()[0]?.getSettings().deviceId);
     if (deviceId) sourceSelect.value = deviceId;
     if (layout === 'single') primarySrc = 'cam';
+    loadPrimCamState(newId); // restore state for new camera
+    activeCam1Id = newId;
     attachStreams(); applyTransform(); showUI();
   } catch(e) { showLoading(false); showToast('Camera error: ' + e.message); }
+}
+
+async function startCam2(deviceId) {
+  if (!deviceId) {
+    // deselect cam2
+    if (cam2Stream) { cam2Stream.getTracks().forEach(t => t.stop()); cam2Stream = null; cam2DeviceId = null; }
+    attachStreams();
+    return;
+  }
+  showLoading(true);
+  try {
+    if (cam2Stream) { cam2Stream.getTracks().forEach(t => t.stop()); cam2Stream = null; }
+    cam2Stream = await navigator.mediaDevices.getUserMedia({
+      video: { deviceId: { exact: deviceId }, width: { ideal: 3840 }, height: { ideal: 2160 } },
+      audio: false,
+    });
+    cam2DeviceId = deviceId;
+    showLoading(false);
+    if (layout === 'single') { layout = 'lr'; applyLayout(); } // auto switch to split
+    attachStreams();
+  } catch(e) { showLoading(false); showToast('Camera 2 error: ' + e.message); }
 }
 
 async function startScreen() {
@@ -2259,6 +2366,7 @@ document.querySelectorAll('#grid-types .seg-btn').forEach(btn => {
   btn.addEventListener('click', e => {
     e.stopPropagation();
     gridType = btn.dataset.grid;
+    if (gridType) lastGridType = gridType;
     document.querySelectorAll('#grid-types .seg-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     document.getElementById('grid-cell-row').style.display = gridType === 'cells' ? '' : 'none';
@@ -2391,7 +2499,6 @@ function toggleUITap() {
 }
 overlay.addEventListener('mousedown', e => {
   dragMoved = false;
-  if (zoomLevel <= 1) return;
   isDragging = true; lastX = e.clientX; lastY = e.clientY; overlay.style.cursor = 'grabbing';
 });
 document.addEventListener('mousemove', e => {
@@ -2407,7 +2514,7 @@ overlay.addEventListener('wheel', e => {
 }, { passive: false });
 overlay.addEventListener('touchstart', e => {
   touchMoved = false;
-  if (e.touches.length === 1 && zoomLevel > 1) {
+  if (e.touches.length === 1) {
     isDragging = true; lastX = e.touches[0].clientX; lastY = e.touches[0].clientY;
   } else if (e.touches.length === 2) {
     isDragging = false;
@@ -2482,12 +2589,19 @@ document.getElementById('keystone-btn').addEventListener('click', e => { e.stopP
 document.getElementById('grid-btn').addEventListener('click', e => {
   e.stopPropagation();
   if (gridType) {
+    lastGridType = gridType;
     gridType = '';
     document.querySelectorAll('#grid-types .seg-btn').forEach(b => b.classList.toggle('active', b.dataset.grid === ''));
     document.getElementById('grid-btn').classList.remove('active');
     gridPanel.classList.remove('open');
     drawGrid();
     startHideTimer();
+  } else if (lastGridType) {
+    gridType = lastGridType;
+    document.querySelectorAll('#grid-types .seg-btn').forEach(b => b.classList.toggle('active', b.dataset.grid === gridType));
+    document.getElementById('grid-cell-row').style.display = gridType === 'cells' ? '' : 'none';
+    document.getElementById('grid-btn').classList.add('active');
+    drawGrid();
   } else {
     togglePanel(gridPanel);
   }
@@ -2500,6 +2614,7 @@ document.getElementById('hl-btn').addEventListener('click', e => { e.stopPropaga
 document.getElementById('spot-btn').addEventListener('click', e => { e.stopPropagation(); toggleSpotlight(); });
 document.getElementById('ruler-btn').addEventListener('click', e => { e.stopPropagation(); toggleRuler(); });
 sourceSelect.addEventListener('change', () => startCamera(sourceSelect.value));
+cam2Select.addEventListener('change', () => startCam2(cam2Select.value));
 // Camera icon: while live it becomes a stop button; otherwise it starts the camera
 appIcon.addEventListener('click', () => {
   if (anyStream()) stopAllStreams();
@@ -2561,6 +2676,95 @@ if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
 }
 
+// ─── Settings save / load / reset ────────────────────────────────────────────
+const SETTINGS_KEY = 'doccam-settings-v1';
+function collectSettings() {
+  return {
+    zoomLevel, panX, panY, rotation, mirrorH,
+    keystoneV, keystoneH, keystoneAngle,
+    gridType, gridCell, lastGridType,
+    laserColor, laserSize, trailMs,
+    hlColor, hlOpacity, hlWidth,
+    rulerStyle, rulerTick, rulerAngle, rulerCross, rulerCrossAngle, rulerUnit,
+    spotShape, spotW, spotH, spotOpacity, spotFeather,
+    qBright, qContrast, qSat, wbR, wbG, wbB, qInvert,
+    layout, splitPos, primarySrc,
+    lang: currentLangCode,
+  };
+}
+function saveSettings() {
+  try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(collectSettings())); showToast(T.save_ok || '設定を保存しました'); } catch(e) {}
+}
+function applyLoadedSettings(s) {
+  if (!s) return;
+  zoomLevel = s.zoomLevel ?? 1; panX = s.panX ?? 0; panY = s.panY ?? 0;
+  rotation = s.rotation ?? 0; mirrorH = s.mirrorH ?? false;
+  keystoneV = s.keystoneV ?? 0; keystoneH = s.keystoneH ?? 0; keystoneAngle = s.keystoneAngle ?? 0;
+  gridType = s.gridType ?? ''; gridCell = s.gridCell ?? 64; lastGridType = s.lastGridType ?? '';
+  laserColor = s.laserColor ?? '#ff2222'; laserSize = s.laserSize ?? 8; trailMs = s.trailMs ?? 3000;
+  hlColor = s.hlColor ?? '#ffee00'; hlOpacity = s.hlOpacity ?? 0.4; hlWidth = s.hlWidth ?? 16;
+  rulerStyle = s.rulerStyle ?? 'solid'; rulerTick = s.rulerTick ?? 20; rulerAngle = s.rulerAngle ?? 0;
+  rulerCross = s.rulerCross ?? false; rulerCrossAngle = s.rulerCrossAngle ?? 90; rulerUnit = s.rulerUnit ?? 'px';
+  spotShape = s.spotShape ?? 'circle'; spotW = s.spotW ?? 140; spotH = s.spotH ?? 90;
+  spotOpacity = s.spotOpacity ?? 0.65; spotFeather = s.spotFeather ?? 10;
+  qBright = s.qBright ?? 1; qContrast = s.qContrast ?? 1; qSat = s.qSat ?? 1;
+  wbR = s.wbR ?? 1; wbG = s.wbG ?? 1; wbB = s.wbB ?? 1; qInvert = s.qInvert ?? false;
+  splitPos = s.splitPos ?? 50;
+  if (s.lang && LANGS[s.lang]) { currentLangCode = s.lang; try { localStorage.setItem('doccam-lang', currentLangCode); } catch(e) {} }
+  // Sync all UI sliders
+  const sv = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+  const st = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+  sv('ks-v', keystoneV); st('ks-v-val', keystoneV + '°');
+  sv('ks-h', keystoneH); st('ks-h-val', keystoneH + '°');
+  sv('ks-angle', keystoneAngle); st('ks-angle-val', keystoneAngle + '°');
+  sv('zoom-slider', zoomLevel); sv('ks-zoom', zoomLevel);
+  sv('q-bright', Math.round(qBright * 100)); st('q-bright-val', Math.round(qBright * 100) + '%');
+  sv('q-contrast', Math.round(qContrast * 100)); st('q-contrast-val', Math.round(qContrast * 100) + '%');
+  sv('q-sat', Math.round(qSat * 100)); st('q-sat-val', Math.round(qSat * 100) + '%');
+  sv('grid-cell', gridCell); st('grid-cell-val', gridCell);
+  sv('ruler-tick', rulerTick); st('ruler-tick-val', rulerTick);
+  sv('ruler-angle', rulerAngle); st('ruler-angle-val', rulerAngle + '°');
+  sv('ruler-cross-angle-slider', rulerCrossAngle); st('ruler-cross-angle-val', rulerCrossAngle + '°');
+  sv('hl-opacity-slider', Math.round(hlOpacity * 100)); st('hl-opacity-val', Math.round(hlOpacity * 100) + '%');
+  sv('spot-w-slider', spotW); st('spot-w-val', spotW);
+  sv('spot-h-slider', spotH); st('spot-h-val', spotH);
+  sv('spot-dark-slider', Math.round(spotOpacity * 100)); st('spot-dark-val', Math.round(spotOpacity * 100) + '%');
+  sv('spot-soft-slider', spotFeather); st('spot-soft-val', spotFeather);
+  // Grid UI
+  document.querySelectorAll('#grid-types .seg-btn').forEach(b => b.classList.toggle('active', b.dataset.grid === gridType));
+  document.getElementById('grid-cell-row').style.display = gridType === 'cells' ? '' : 'none';
+  document.getElementById('grid-btn').classList.toggle('active', !!gridType);
+  // Laser trail btns
+  document.querySelectorAll('#trail-btns .seg-btn').forEach(b => b.classList.toggle('active', parseInt(b.dataset.trail) === trailMs));
+  // Ruler cross btn
+  document.getElementById('ruler-cross-btn').classList.toggle('active', rulerCross);
+  document.getElementById('ruler-cross-angle-row').style.display = rulerCross ? '' : 'none';
+  // Ruler style
+  document.querySelectorAll('#ruler-styles .seg-btn').forEach(b => b.classList.toggle('active', b.dataset.rstyle === rulerStyle));
+  // Ruler unit
+  document.querySelectorAll('#ruler-units .seg-btn').forEach(b => b.classList.toggle('active', b.dataset.runit === rulerUnit));
+  // Spot shape
+  document.querySelectorAll('.shape-btn').forEach(b => b.classList.toggle('active', b.dataset.shape === spotShape));
+  document.getElementById('spot-h-row').style.display = (spotShape === 'ellipse' || spotShape === 'rect') ? '' : 'none';
+  // Mirror btn
+  document.getElementById('mirror-btn').classList.toggle('active', mirrorH);
+  applyTransform(); applyFilters(); drawGrid();
+  applyLang();
+}
+function loadSavedSettings() {
+  try {
+    const raw = localStorage.getItem(SETTINGS_KEY);
+    if (raw) applyLoadedSettings(JSON.parse(raw));
+  } catch(e) {}
+}
+function resetAllSettings() {
+  if (!confirm(T.reset_confirm || 'Reset all saved settings?')) return;
+  try { localStorage.removeItem(SETTINGS_KEY); localStorage.removeItem('doccam-lang'); } catch(e) {}
+  location.reload();
+}
+document.getElementById('save-btn').addEventListener('click', e => { e.stopPropagation(); saveSettings(); });
+document.getElementById('reset-settings-btn').addEventListener('click', resetAllSettings);
+
 // ─── Slider ±1 step buttons ───────────────────────────────────────────────────
 function wrapSliders() {
   document.querySelectorAll('.opt-slider, #zoom-slider').forEach(slider => {
@@ -2587,6 +2791,7 @@ function wrapSliders() {
 // ─── Init ─────────────────────────────────────────────────────────────────────
 showLoading(false);
 nocam.classList.remove('hidden');
+loadSavedSettings(); // load before applyLang so lang is applied
 applyLang();
 wrapSliders();
 applyFilters();
